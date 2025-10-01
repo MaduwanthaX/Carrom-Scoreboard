@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Carrom Scoreboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <div class="max-w-3xl mx-auto p-4">
+    <header class="flex items-center justify-between mb-4">
+      <h1 class="text-2xl font-bold">Carrom Scoreboard</h1>
+      <button id="openSettings" class="text-sm underline">Settings</button>
+    </header>
+
+    <div class="mb-4 flex gap-2">
+      <button id="tab-scoreboard" class="px-3 py-2 rounded-lg bg-slate-200">Scoreboard</button>
+      <button id="tab-new" class="px-3 py-2 rounded-lg">New Match</button>
+      <button id="tab-history" class="px-3 py-2 rounded-lg">History</button>
+    </div>
+
+    <section id="view-scoreboard" class="space-y-3"></section>
+
+    <section id="view-new" class="hidden space-y-4">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm mb-1">Date</label>
+          <input id="date" type="date" class="w-full border rounded-lg px-3 py-2" />
+        </div>
+        <div></div>
+        <div>
+          <label class="block text-sm mb-1">Team A</label>
+          <select id="teamA" class="w-full border rounded-lg px-3 py-2"></select>
+        </div>
+        <div>
+          <label class="block text-sm mb-1">Team B</label>
+          <select id="teamB" class="w-full border rounded-lg px-3 py-2"></select>
+        </div>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="font-semibold">Rounds</div>
+          <div class="flex gap-2">
+            <button id="addRound" class="px-3 py-1 rounded-lg border">Add Round</button>
+            <button id="removeRound" class="px-3 py-1 rounded-lg border">Remove Round</button>
+          </div>
+        </div>
+        <div id="rounds" class="space-y-2"></div>
+      </div>
+
+      <div id="totals" class="text-sm text-slate-700"></div>
+      <button id="save" class="px-4 py-2 rounded-xl bg-emerald-600 text-white">Save Match</button>
+      <div id="saveMsg" class="text-sm text-emerald-700"></div>
+    </section>
+
+    <section id="view-history" class="hidden space-y-3"></section>
+
+    <dialog id="settings" class="rounded-xl p-0 w-full max-w-xl">
+      <form method="dialog" class="p-4 space-y-3">
+        <h2 class="text-lg font-semibold">Settings</h2>
+        <div>
+          <label class="block text-sm mb-1">Google Apps Script Web App URL (must end with /exec)</label>
+          <input id="apiUrl" type="url" class="w-full border rounded-lg px-3 py-2" placeholder="https://script.google.com/macros/s/.../exec" />
+        </div>
+        <div>
+          <label class="block text-sm mb-1">Optional token (if you secure your web app)</label>
+          <input id="apiToken" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="leave blank if not used" />
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button id="saveSettings" class="px-3 py-2 rounded-lg bg-emerald-600 text-white">Save</button>
+          <button class="px-3 py-2 rounded-lg border" value="cancel">Close</button>
+        </div>
+        <p id="settingsMsg" class="text-sm text-emerald-700"></p>
+      </form>
+    </dialog>
+
+  </div>
+
+<script>
+const store = {
+  get url() { return localStorage.getItem('carrom_api_url') || ''; },
+  set url(v) { localStorage.setItem('carrom_api_url', v); },
+  get token() { return localStorage.getItem('carrom_api_token') || ''; },
+  set token(v) { localStorage.setItem('carrom_api_token', v); }
+};
+const qs = s => document.querySelector(s);
+const ce = (tag, cls='') => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
+
+let teams = [];
+let matches = [];
+let wins = {};
+
+const views = {
+  scoreboard: document.getElementById('view-scoreboard'),
+  new: document.getElementById('view-new'),
+  history: document.getElementById('view-history'),
+};
+
+function show(name) {
+  for (const k in views) views[k].classList.toggle('hidden', k !== name);
+  for (const id of ['tab-scoreboard','tab-new','tab-history']) {
+    const active = ('tab-' + name) === id;
+    document.getElementById(id).classList.toggle('bg-slate-200', active);
+  }
+}
+
+function withToken(url) {
+  if (!store.token) return url;
+  const u = new URL(url);
+  u.searchParams.set('token', store.token);
+  return u.toString();
+}
+
+async function apiGet(action) {
+  if (!store.url) throw new Error('Set your /exec URL in Settings (top-right).');
+  const res = await fetch(withToken(store.url + '?action=' + encodeURIComponent(action)));
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { throw new Error('Non-JSON response: ' + text.slice(0, 200)); }
+}
+
+async function apiPost(form) {
+  if (!store.url) throw new Error('Set your /exec URL in Settings (top-right).');
+  if (store.token) form.append('token', store.token);
+  const res = await fetch(store.url, { method:'POST', body: form });
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch { throw new Error('Non-JSON response: ' + text.slice(0, 200)); }
+}
+
+function renderScoreboard() {
+  const root = views.scoreboard;
+  root.innerHTML = '';
+  teams.forEach(t => {
+    const card = ce('div', 'rounded-xl border bg-white p-4 flex items-center justify-between');
+    const name = ce('div', 'font-semibold'); name.textContent = t.name;
+    const badge = ce('div', 'px-3 py-1 rounded-lg bg-slate-100'); badge.textContent = 'Wins: ' + (wins[t.id] || 0);
+    card.append(name, badge);
+    root.append(card);
+  });
+}
+
+function renderHistory() {
+  const root = views.history;
+  root.innerHTML = '';
+  const nameOf = id => (teams.find(t => t.id === Number(id)) || {}).name || ('Team ' + id);
+  matches.slice().reverse().forEach(m => {
+    const card = ce('div', 'rounded-xl border bg-white p-4 space-y-1');
+    const h = ce('div', 'font-semibold'); h.textContent = `${m.date} — ${nameOf(m.teamAId)} vs ${nameOf(m.teamBId)}`;
+    const tot = ce('div'); tot.textContent = `Totals: ${m.teamATotal} - ${m.teamBTotal}`;
+    const rounds = JSON.parse(m.roundsJson || '[]');
+    const rl = ce('div', 'text-sm text-slate-700');
+    rl.innerHTML = rounds.map((r,i)=>`• Round ${i+1}: ${r[0]} - ${r[1]}`).join('<br>');
+    card.append(h, rl, tot);
+    root.append(card);
+  });
+}
+
+function populateTeamSelects() {
+  const a = document.getElementById('teamA'), b = document.getElementById('teamB');
+  const oldA = a.value, oldB = b.value;
+  a.innerHTML=''; b.innerHTML='';
+  teams.forEach(t => {
+    const o1 = ce('option'); o1.value = t.id; o1.textContent = t.name; a.append(o1);
+    const o2 = ce('option'); o2.value = t.id; o2.textContent = t.name; b.append(o2);
+  });
+  if (teams.length >= 2) { a.value = oldA || teams[0].id; b.value = oldB || teams[1].id; }
+}
+
+function updateTotals() {
+  const rounds = Array.from(document.querySelectorAll('.round-row')).map(row => {
+    const a = Number(row.querySelector('.ra').value || 0);
+    const b = Number(row.querySelector('.rb').value || 0);
+    return [a,b];
+  });
+  const aTot = rounds.reduce((s,r)=>s+r[0],0);
+  const bTot = rounds.reduce((s,r)=>s+r[1],0);
+  qs('#totals').textContent = `Totals → ${qs('#teamA').selectedOptions[0]?.textContent || 'A'}: ${aTot} | ${qs('#teamB').selectedOptions[0]?.textContent || 'B'}: ${bTot}`;
+}
+
+function addRoundRow(a=0,b=0) {
+  const row = ce('div','round-row grid grid-cols-3 gap-2');
+  const label = ce('div','self-center'); label.textContent = `Round ${document.querySelectorAll('.round-row').length+1}`;
+  const ia = ce('input','ra border rounded-lg px-3 py-2'); ia.type='number'; ia.min='0'; ia.value=a; ia.oninput=updateTotals;
+  const ib = ce('input','rb border rounded-lg px-3 py-2'); ib.type='number'; ib.min='0'; ib.value=b; ib.oninput=updateTotals;
+  row.append(label, ia, ib);
+  qs('#rounds').append(row);
+  updateTotals();
+}
+
+document.getElementById('tab-scoreboard').onclick = () => { show('scoreboard'); refresh(); };
+document.getElementById('tab-new').onclick = () => { show('new'); };
+document.getElementById('tab-history').onclick = () => { show('history'); refresh(); };
+
+document.getElementById('addRound').onclick = () => addRoundRow(0,0);
+document.getElementById('removeRound').onclick = () => {
+  const rows = document.querySelectorAll('.round-row');
+  if (rows.length > 1) rows[rows.length-1].remove();
+  updateTotals();
+};
+document.getElementById('teamA').onchange = updateTotals;
+document.getElementById('teamB').onchange = updateTotals;
+
+document.getElementById('save').onclick = async () => {
+  try {
+    const date = qs('#date').value || new Date().toISOString().slice(0,10);
+    const teamAId = qs('#teamA').value;
+    const teamBId = qs('#teamB').value;
+    if (teamAId === teamBId) { alert('Pick two different teams'); return; }
+    const rounds = Array.from(document.querySelectorAll('.round-row')).map(row => {
+      const a = Number(row.querySelector('.ra').value || 0);
+      const b = Number(row.querySelector('.rb').value || 0);
+      return [a,b];
+    });
+    const body = new URLSearchParams();
+    body.append('action','addMatch');
+    body.append('date', date);
+    body.append('teamAId', teamAId);
+    body.append('teamBId', teamBId);
+    body.append('rounds', JSON.stringify(rounds));
+    const j = await apiPost(body);
+    document.getElementById('saveMsg').textContent = j.ok ? 'Saved!' : ('Error: ' + (j.error || 'unknown'));
+    await refresh();
+    show('scoreboard');
+  } catch (e) {
+    alert(e.message || e);
+  }
+};
+
+document.getElementById('openSettings').onclick = () => {
+  qs('#apiUrl').value = store.url;
+  qs('#apiToken').value = store.token;
+  document.getElementById('settings').showModal();
+};
+
+document.getElementById('saveSettings').onclick = (ev) => {
+  ev.preventDefault();
+  store.url = qs('#apiUrl').value.trim();
+  store.token = qs('#apiToken').value.trim();
+  qs('#settingsMsg').textContent = 'Saved!';
+  setTimeout(()=>document.getElementById('settings').close(), 400);
+};
+
+async function refresh() {
+  try {
+    const data = await apiGet('getAll');
+    teams = data.teams || [];
+    matches = data.matches || [];
+    wins = data.wins || {};
+    renderScoreboard();
+    renderHistory();
+    populateTeamSelects();
+    updateTotals();
+  } catch (e) {
+    console.warn('Refresh failed:', e);
+  }
+}
+
+(function init(){
+  document.getElementById('date').value = new Date().toISOString().slice(0,10);
+  addRoundRow(0,0);
+  show('scoreboard');
+  if (store.url) refresh();
+})();
+</script>
+</body>
+</html>
