@@ -5,79 +5,128 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Carrom Scoreboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.7); }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
-  <div class="max-w-3xl mx-auto p-4">
-    <header class="flex items-center justify-between mb-4">
-      <h1 class="text-2xl font-bold">Carrom Scoreboard</h1>
-      <button id="openSettings" class="text-sm underline">Settings</button>
+<body class="bg-gradient-to-br from-rose-50 via-amber-50 to-sky-50 min-h-screen text-slate-900">
+  <div class="mx-auto max-w-3xl p-4">
+    <!-- Header -->
+    <header class="rounded-2xl glass border p-4 mb-4 flex items-center justify-between shadow-sm">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-rose-400 to-orange-300"></div>
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold">Carrom Scoreboard</h1>
+          <div class="text-xs sm:text-sm text-slate-600">Track wins & match history</div>
+        </div>
+      </div>
+      <button id="openSettings" class="text-sm px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 active:scale-95 transition">Settings</button>
     </header>
 
-    <div class="mb-4 flex gap-2">
-      <button id="tab-scoreboard" class="px-3 py-2 rounded-lg bg-slate-200">Scoreboard</button>
-      <button id="tab-new" class="px-3 py-2 rounded-lg">New Match</button>
-      <button id="tab-history" class="px-3 py-2 rounded-lg">History</button>
+    <!-- Onboarding banner (shown if API URL missing) -->
+    <div id="onboard" class="hidden rounded-2xl border glass p-4 mb-4">
+      <div class="font-semibold mb-2">Quick setup</div>
+      <p class="text-sm mb-3">Paste your Google Apps Script <b>/exec</b> URL to connect your sheet.</p>
+      <button id="openSettings2" class="px-3 py-2 rounded-xl bg-emerald-600 text-white">Open Settings</button>
     </div>
 
-    <section id="view-scoreboard" class="space-y-3"></section>
+    <!-- Tabs -->
+    <div class="rounded-2xl glass border p-1 mb-4 flex gap-1 shadow-sm">
+      <button id="tab-scoreboard" class="flex-1 px-3 py-2 rounded-xl bg-white">Scoreboard</button>
+      <button id="tab-new" class="flex-1 px-3 py-2 rounded-xl">New Match</button>
+      <button id="tab-history" class="flex-1 px-3 py-2 rounded-xl">History</button>
+    </div>
 
+    <!-- Scoreboard -->
+    <section id="view-scoreboard" class="space-y-3">
+      <div id="sb-skeleton" class="space-y-3">
+        <div class="h-16 rounded-xl glass border animate-pulse"></div>
+        <div class="h-16 rounded-xl glass border animate-pulse"></div>
+        <div class="h-16 rounded-xl glass border animate-pulse"></div>
+      </div>
+    </section>
+
+    <!-- New Match -->
     <section id="view-new" class="hidden space-y-4">
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-sm mb-1">Date</label>
-          <input id="date" type="date" class="w-full border rounded-lg px-3 py-2" />
-        </div>
-        <div></div>
-        <div>
-          <label class="block text-sm mb-1">Team A</label>
-          <select id="teamA" class="w-full border rounded-lg px-3 py-2"></select>
-        </div>
-        <div>
-          <label class="block text-sm mb-1">Team B</label>
-          <select id="teamB" class="w-full border rounded-lg px-3 py-2"></select>
+      <div class="rounded-2xl glass border p-4 space-y-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm mb-1">Date</label>
+            <input id="date" type="date" class="w-full border rounded-xl px-3 py-2 bg-white" />
+          </div>
+          <div></div>
+          <div>
+            <label class="block text-sm mb-1">Team A</label>
+            <select id="teamA" class="w-full border rounded-xl px-3 py-2 bg-white"></select>
+          </div>
+          <div>
+            <label class="block text-sm mb-1">Team B</label>
+            <select id="teamB" class="w-full border rounded-xl px-3 py-2 bg-white"></select>
+          </div>
         </div>
       </div>
 
-      <div>
+      <div class="rounded-2xl glass border p-4">
         <div class="flex items-center justify-between mb-2">
           <div class="font-semibold">Rounds</div>
           <div class="flex gap-2">
-            <button id="addRound" class="px-3 py-1 rounded-lg border">Add Round</button>
-            <button id="removeRound" class="px-3 py-1 rounded-lg border">Remove Round</button>
+            <button id="addRound" class="px-3 py-2 rounded-xl border bg-white active:scale-95 transition">Add Round</button>
+            <button id="removeRound" class="px-3 py-2 rounded-xl border bg-white active:scale-95 transition">Remove Round</button>
           </div>
         </div>
         <div id="rounds" class="space-y-2"></div>
       </div>
 
-      <div id="totals" class="text-sm text-slate-700"></div>
-      <button id="save" class="px-4 py-2 rounded-xl bg-emerald-600 text-white">Save Match</button>
+      <div class="flex items-center justify-between">
+        <div id="totals" class="text-sm text-slate-700"></div>
+        <button id="save" class="px-4 py-2 rounded-xl bg-emerald-600 text-white active:scale-95 transition">Save Match</button>
+      </div>
       <div id="saveMsg" class="text-sm text-emerald-700"></div>
     </section>
 
-    <section id="view-history" class="hidden space-y-3"></section>
+    <!-- History -->
+    <section id="view-history" class="hidden space-y-3">
+      <div id="hist-skeleton" class="space-y-3">
+        <div class="h-20 rounded-xl glass border animate-pulse"></div>
+        <div class="h-20 rounded-xl glass border animate-pulse"></div>
+      </div>
+    </section>
 
-    <dialog id="settings" class="rounded-xl p-0 w-full max-w-xl">
-      <form method="dialog" class="p-4 space-y-3">
-        <h2 class="text-lg font-semibold">Settings</h2>
-        <div>
-          <label class="block text-sm mb-1">Google Apps Script Web App URL (must end with /exec)</label>
-          <input id="apiUrl" type="url" class="w-full border rounded-lg px-3 py-2" placeholder="https://script.google.com/macros/s/.../exec" />
+    <!-- Settings Panel (no <dialog>, mobile friendly) -->
+    <div id="settingsPanel" class="fixed inset-0 hidden z-50">
+      <div class="absolute inset-0 bg-black/30" id="closeSettings"></div>
+      <div class="absolute right-0 top-0 h-full w-full sm:w-[28rem] bg-white shadow-2xl p-4 overflow-auto">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Settings</h2>
+          <button id="closeSettingsBtn" class="text-sm px-2 py-1 rounded-lg border">Close</button>
         </div>
-        <div>
-          <label class="block text-sm mb-1">Optional token (if you secure your web app)</label>
-          <input id="apiToken" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="leave blank if not used" />
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm mb-1">Google Apps Script Web App URL (must end with <code>/exec</code>)</label>
+            <input id="apiUrl" type="url" class="w-full border rounded-xl px-3 py-2" placeholder="https://script.google.com/macros/s/.../exec" />
+          </div>
+          <div>
+            <label class="block text-sm mb-1">Optional token (if you secure your web app)</label>
+            <input id="apiToken" type="text" class="w-full border rounded-xl px-3 py-2" placeholder="leave blank if not used" />
+          </div>
+          <div class="flex gap-2">
+            <button id="saveSettings" class="px-3 py-2 rounded-xl bg-emerald-600 text-white">Save</button>
+            <a id="openBackend" class="px-3 py-2 rounded-xl border" href="#" target="_blank">Open backend</a>
+          </div>
+          <p id="settingsMsg" class="text-sm text-emerald-700"></p>
+          <div class="text-xs text-slate-500">Tip: You can also pass <code>?api=YOUR_EXEC_URL</code> in the page URL.</div>
         </div>
-        <div class="flex justify-end gap-2 pt-2">
-          <button id="saveSettings" class="px-3 py-2 rounded-lg bg-emerald-600 text-white">Save</button>
-          <button class="px-3 py-2 rounded-lg border" value="cancel">Close</button>
-        </div>
-        <p id="settingsMsg" class="text-sm text-emerald-700"></p>
-      </form>
-    </dialog>
+      </div>
+    </div>
 
+    <!-- Footer -->
+    <footer class="mt-8 text-center text-xs text-slate-500">
+      Made for evening carrom fun 🏆
+    </footer>
   </div>
 
 <script>
+// ===== storage & helpers =====
 const store = {
   get url() { return localStorage.getItem('carrom_api_url') || ''; },
   set url(v) { localStorage.setItem('carrom_api_url', v); },
@@ -101,7 +150,7 @@ function show(name) {
   for (const k in views) views[k].classList.toggle('hidden', k !== name);
   for (const id of ['tab-scoreboard','tab-new','tab-history']) {
     const active = ('tab-' + name) === id;
-    document.getElementById(id).classList.toggle('bg-slate-200', active);
+    document.getElementById(id).classList.toggle('bg-white', active);
   }
 }
 
@@ -113,7 +162,7 @@ function withToken(url) {
 }
 
 async function apiGet(action) {
-  if (!store.url) throw new Error('Set your /exec URL in Settings (top-right).');
+  if (!store.url) throw new Error('Set your /exec URL in Settings.');
   const res = await fetch(withToken(store.url + '?action=' + encodeURIComponent(action)));
   const text = await res.text();
   try { return JSON.parse(text); }
@@ -121,7 +170,7 @@ async function apiGet(action) {
 }
 
 async function apiPost(form) {
-  if (!store.url) throw new Error('Set your /exec URL in Settings (top-right).');
+  if (!store.url) throw new Error('Set your /exec URL in Settings.');
   if (store.token) form.append('token', store.token);
   const res = await fetch(store.url, { method:'POST', body: form });
   const text = await res.text();
@@ -129,16 +178,21 @@ async function apiPost(form) {
   catch { throw new Error('Non-JSON response: ' + text.slice(0, 200)); }
 }
 
+// ===== renderers =====
 function renderScoreboard() {
   const root = views.scoreboard;
   root.innerHTML = '';
-  teams.forEach(t => {
-    const card = ce('div', 'rounded-xl border bg-white p-4 flex items-center justify-between');
+  teams.forEach((t, i) => {
+    const card = ce('div', 'rounded-2xl glass border p-4 flex items-center justify-between shadow-sm');
+    const left = ce('div', 'flex items-center gap-3');
+    const dot = ce('div', 'h-4 w-4 rounded-full ' + ['bg-rose-400','bg-amber-400','bg-sky-400'][i % 3]);
     const name = ce('div', 'font-semibold'); name.textContent = t.name;
-    const badge = ce('div', 'px-3 py-1 rounded-lg bg-slate-100'); badge.textContent = 'Wins: ' + (wins[t.id] || 0);
-    card.append(name, badge);
+    left.append(dot, name);
+    const badge = ce('div', 'px-3 py-1 rounded-xl bg-white text-slate-700'); badge.textContent = 'Wins: ' + (wins[t.id] || 0);
+    card.append(left, badge);
     root.append(card);
   });
+  qs('#sb-skeleton').classList.add('hidden');
 }
 
 function renderHistory() {
@@ -146,7 +200,7 @@ function renderHistory() {
   root.innerHTML = '';
   const nameOf = id => (teams.find(t => t.id === Number(id)) || {}).name || ('Team ' + id);
   matches.slice().reverse().forEach(m => {
-    const card = ce('div', 'rounded-xl border bg-white p-4 space-y-1');
+    const card = ce('div', 'rounded-2xl glass border p-4 space-y-1 shadow-sm');
     const h = ce('div', 'font-semibold'); h.textContent = `${m.date} — ${nameOf(m.teamAId)} vs ${nameOf(m.teamBId)}`;
     const tot = ce('div'); tot.textContent = `Totals: ${m.teamATotal} - ${m.teamBTotal}`;
     const rounds = JSON.parse(m.roundsJson || '[]');
@@ -155,6 +209,7 @@ function renderHistory() {
     card.append(h, rl, tot);
     root.append(card);
   });
+  qs('#hist-skeleton').classList.add('hidden');
 }
 
 function populateTeamSelects() {
@@ -182,13 +237,14 @@ function updateTotals() {
 function addRoundRow(a=0,b=0) {
   const row = ce('div','round-row grid grid-cols-3 gap-2');
   const label = ce('div','self-center'); label.textContent = `Round ${document.querySelectorAll('.round-row').length+1}`;
-  const ia = ce('input','ra border rounded-lg px-3 py-2'); ia.type='number'; ia.min='0'; ia.value=a; ia.oninput=updateTotals;
-  const ib = ce('input','rb border rounded-lg px-3 py-2'); ib.type='number'; ib.min='0'; ib.value=b; ib.oninput=updateTotals;
+  const ia = ce('input','ra border rounded-xl px-3 py-2 bg-white'); ia.type='number'; ia.min='0'; ia.value=a; ia.oninput=updateTotals;
+  const ib = ce('input','rb border rounded-xl px-3 py-2 bg-white'); ib.type='number'; ib.min='0'; ib.value=b; ib.oninput=updateTotals;
   row.append(label, ia, ib);
   qs('#rounds').append(row);
   updateTotals();
 }
 
+// ===== interactions =====
 document.getElementById('tab-scoreboard').onclick = () => { show('scoreboard'); refresh(); };
 document.getElementById('tab-new').onclick = () => { show('new'); };
 document.getElementById('tab-history').onclick = () => { show('history'); refresh(); };
@@ -228,18 +284,28 @@ document.getElementById('save').onclick = async () => {
   }
 };
 
-document.getElementById('openSettings').onclick = () => {
+// Settings panel controls
+function openSettings() {
   qs('#apiUrl').value = store.url;
   qs('#apiToken').value = store.token;
-  document.getElementById('settings').showModal();
-};
+  const backendLink = store.url ? (store.url + '?action=getAll' + (store.token ? '&token=' + encodeURIComponent(store.token) : '')) : '#';
+  qs('#openBackend').href = backendLink;
+  document.getElementById('settingsPanel').classList.remove('hidden');
+}
+function closeSettings() {
+  document.getElementById('settingsPanel').classList.add('hidden');
+}
+document.getElementById('openSettings').onclick = openSettings;
+document.getElementById('openSettings2').onclick = openSettings;
+document.getElementById('closeSettings').onclick = closeSettings;
+document.getElementById('closeSettingsBtn').onclick = closeSettings;
 
 document.getElementById('saveSettings').onclick = (ev) => {
   ev.preventDefault();
   store.url = qs('#apiUrl').value.trim();
   store.token = qs('#apiToken').value.trim();
   qs('#settingsMsg').textContent = 'Saved!';
-  setTimeout(()=>document.getElementById('settings').close(), 400);
+  setTimeout(()=>{ qs('#settingsMsg').textContent=''; closeSettings(); refresh(); }, 400);
 };
 
 async function refresh() {
@@ -257,11 +323,23 @@ async function refresh() {
   }
 }
 
+// init
 (function init(){
+  // URL param support: ?api=
+  const params = new URLSearchParams(location.search);
+  const pApi = params.get('api'); if (pApi) store.url = pApi;
+  const pTok = params.get('token'); if (pTok) store.token = pTok;
+
   document.getElementById('date').value = new Date().toISOString().slice(0,10);
   addRoundRow(0,0);
   show('scoreboard');
-  if (store.url) refresh();
+
+  // Show onboarding if no URL set
+  if (!store.url) {
+    document.getElementById('onboard').classList.remove('hidden');
+  } else {
+    refresh();
+  }
 })();
 </script>
 </body>
