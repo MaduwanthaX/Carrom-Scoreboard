@@ -7,7 +7,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.7); }
-    /* Improve Android select reliability */
     select { background-color: white; }
   </style>
 </head>
@@ -45,9 +44,13 @@
       </div>
     </section>
 
-    <!-- New Match (NO glass on containers with selects to fix Android dropdowns) -->
+    <!-- New Match (plain bg for Android selects) -->
     <section id="view-new" class="hidden space-y-4">
       <div class="rounded-2xl border p-4 bg-white space-y-3">
+        <div class="flex items-center justify-between text-xs text-slate-600">
+          <div>Teams loaded: <span id="teamCount">0</span></div>
+          <button id="reloadTeams" class="px-2 py-1 rounded-lg border bg-white active:scale-95 transition">Reload teams</button>
+        </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-sm mb-1">Date</label>
@@ -68,6 +71,7 @@
           </div>
         </div>
         <div id="teamWarn" class="text-xs text-rose-600"></div>
+        <div id="emptyTeams" class="hidden text-xs text-amber-700">No teams loaded. Tap <b>Settings</b>, paste your <code>/exec</code> URL, then tap <b>Reload teams</b>.</div>
       </div>
 
       <div class="rounded-2xl border p-4 bg-white">
@@ -129,7 +133,6 @@
   </div>
 
 <script>
-// ===== storage & helpers =====
 const store = {
   get url() { return localStorage.getItem('carrom_api_url') || ''; },
   set url(v) { localStorage.setItem('carrom_api_url', v); },
@@ -218,14 +221,14 @@ function populateTeamSelects() {
   const a = document.getElementById('teamA'), b = document.getElementById('teamB');
   const oldA = a.value, oldB = b.value;
   a.innerHTML=''; b.innerHTML='';
-  // placeholder
   const phA = ce('option'); phA.value=''; phA.text='Choose Team A'; phA.disabled=true; phA.selected=true; a.append(phA);
   const phB = ce('option'); phB.value=''; phB.text='Choose Team B'; phB.disabled=true; phB.selected=true; b.append(phB);
   teams.forEach(t => {
     const o1 = ce('option'); o1.value = t.id; o1.textContent = t.name; a.append(o1);
     const o2 = ce('option'); o2.value = t.id; o2.textContent = t.name; b.append(o2);
   });
-  // try to restore previous selection if valid
+  document.getElementById('teamCount').textContent = String(teams.length);
+  document.getElementById('emptyTeams').classList.toggle('hidden', teams.length > 0);
   if (teams.find(t=>String(t.id)===oldA)) a.value = oldA;
   if (teams.find(t=>String(t.id)===oldB)) b.value = oldB;
   updateSaveEnabled();
@@ -266,8 +269,9 @@ function addRoundRow(a=0,b=0) {
 
 // ===== interactions =====
 document.getElementById('tab-scoreboard').onclick = () => { show('scoreboard'); refresh(); };
-document.getElementById('tab-new').onclick = () => { show('new'); refresh(); }; // refresh to ensure teams list
+document.getElementById('tab-new').onclick = () => { show('new'); refresh(); };
 document.getElementById('tab-history').onclick = () => { show('history'); refresh(); };
+document.getElementById('reloadTeams').onclick = () => { refresh(); };
 
 document.getElementById('addRound').onclick = () => addRoundRow(0,0);
 document.getElementById('removeRound').onclick = () => {
@@ -325,6 +329,7 @@ document.getElementById('saveSettings').onclick = (ev) => {
   store.url = qs('#apiUrl').value.trim();
   store.token = qs('#apiToken').value.trim();
   qs('#settingsMsg').textContent = 'Saved!';
+  document.getElementById('onboard').classList.add('hidden');
   setTimeout(()=>{ qs('#settingsMsg').textContent=''; closeSettings(); refresh(); }, 300);
 };
 
@@ -341,6 +346,7 @@ async function refresh() {
     updateSaveEnabled();
   } catch (e) {
     console.warn('Refresh failed:', e);
+    document.getElementById('emptyTeams').classList.remove('hidden');
   }
 }
 
