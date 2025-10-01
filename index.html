@@ -1,133 +1,129 @@
 <!doctype html>
-<html lang="en">
+<html lang=\"en\">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset=\"utf-8\" />
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
   <title>Carrom Scoreboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src=\"https://cdn.tailwindcss.com\"></script>
   <style>
     .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.7); }
     select { background-color: white; }
   </style>
 </head>
-<body class="bg-gradient-to-br from-rose-50 via-amber-50 to-sky-50 min-h-screen text-slate-900">
-  <div class="mx-auto max-w-3xl p-4">
-    <header class="rounded-2xl glass border p-4 mb-4 flex items-center justify-between shadow-sm">
-      <div class="flex items-center gap-3">
-        <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-rose-400 to-orange-300"></div>
+<body class=\"bg-gradient-to-br from-rose-50 via-amber-50 to-sky-50 min-h-screen text-slate-900\">
+  <div class=\"mx-auto max-w-3xl p-4\">
+    <header class=\"rounded-2xl glass border p-4 mb-4 flex items-center justify-between shadow-sm\">
+      <div class=\"flex items-center gap-3\">
+        <div class=\"h-10 w-10 rounded-2xl bg-gradient-to-br from-rose-400 to-orange-300\"></div>
         <div>
-          <h1 class="text-xl sm:text-2xl font-bold">Carrom Scoreboard</h1>
-          <div class="text-xs sm:text-sm text-slate-600">Track wins & match history</div>
+          <h1 class=\"text-xl sm:text-2xl font-bold\">Carrom Scoreboard</h1>
+          <div class=\"text-xs sm:text-sm text-slate-600\">Track wins & match history</div>
         </div>
       </div>
-      <button id="openSettings" class="text-sm px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 active:scale-95 transition">Settings</button>
+      <button id=\"openSettings\" class=\"text-sm px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 active:scale-95 transition\">Settings</button>
     </header>
 
-    <div id="onboard" class="hidden rounded-2xl border glass p-4 mb-4">
-      <div class="font-semibold mb-2">Quick setup</div>
-      <p class="text-sm mb-3">Paste your Google Apps Script <b>/exec</b> URL to connect your sheet.</p>
-      <button id="openSettings2" class="px-3 py-2 rounded-xl bg-emerald-600 text-white">Open Settings</button>
+    <div id=\"onboard\" class=\"hidden rounded-2xl border glass p-4 mb-4\">
+      <div class=\"font-semibold mb-2\">Quick setup</div>
+      <p class=\"text-sm mb-3\">Paste your Google Apps Script <b>/exec</b> URL to connect your sheet.</p>
+      <button id=\"openSettings2\" class=\"px-3 py-2 rounded-xl bg-emerald-600 text-white\">Open Settings</button>
     </div>
 
-    <div class="rounded-2xl glass border p-1 mb-4 flex gap-1 shadow-sm">
-      <button id="tab-scoreboard" class="flex-1 px-3 py-2 rounded-xl bg-white">Scoreboard</button>
-      <button id="tab-new" class="flex-1 px-3 py-2 rounded-xl">New Match</button>
-      <button id="tab-history" class="flex-1 px-3 py-2 rounded-xl">History</button>
+    <div class=\"rounded-2xl glass border p-1 mb-4 flex gap-1 shadow-sm\">
+      <button id=\"tab-scoreboard\" class=\"flex-1 px-3 py-2 rounded-xl bg-white\">Scoreboard</button>
+      <button id=\"tab-new\" class=\"flex-1 px-3 py-2 rounded-xl\">New Match</button>
+      <button id=\"tab-history\" class=\"flex-1 px-3 py-2 rounded-xl\">History</button>
     </div>
 
-    <!-- Scoreboard -->
-    <section id="view-scoreboard" class="space-y-3">
-      <div id="sb-skeleton" class="space-y-3">
-        <div class="h-16 rounded-xl glass border animate-pulse"></div>
-        <div class="h-16 rounded-xl glass border animate-pulse"></div>
-        <div class="h-16 rounded-xl glass border animate-pulse"></div>
+    <section id=\"view-scoreboard\" class=\"space-y-3\">
+      <div id=\"sb-skeleton\" class=\"space-y-3\">
+        <div class=\"h-16 rounded-xl glass border animate-pulse\"></div>
+        <div class=\"h-16 rounded-xl glass border animate-pulse\"></div>
+        <div class=\"h-16 rounded-xl glass border animate-pulse\"></div>
       </div>
     </section>
 
-    <!-- New Match (plain bg for Android selects) -->
-    <section id="view-new" class="hidden space-y-4">
-      <div class="rounded-2xl border p-4 bg-white space-y-3">
-        <div class="flex items-center justify-between text-xs text-slate-600">
-          <div>Teams loaded: <span id="teamCount">0</span></div>
-          <button id="reloadTeams" class="px-2 py-1 rounded-lg border bg-white active:scale-95 transition">Reload teams</button>
+    <section id=\"view-new\" class=\"hidden space-y-4\">
+      <div class=\"rounded-2xl border p-4 bg-white space-y-3\">
+        <div class=\"flex items-center justify-between text-xs text-slate-600\">
+          <div>Teams loaded: <span id=\"teamCount\">0</span></div>
+          <button id=\"reloadTeams\" class=\"px-2 py-1 rounded-lg border bg-white active:scale-95 transition\">Reload teams</button>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div id=\"fetchError\" class=\"hidden text-xs text-rose-600\"></div>
+        <div class=\"grid grid-cols-1 sm:grid-cols-2 gap-3\">
           <div>
-            <label class="block text-sm mb-1">Date</label>
-            <input id="date" type="date" class="w-full border rounded-xl px-3 py-2 bg-white" />
+            <label class=\"block text-sm mb-1\">Date</label>
+            <input id=\"date\" type=\"date\" class=\"w-full border rounded-xl px-3 py-2 bg-white\" />
           </div>
           <div></div>
           <div>
-            <label class="block text-sm mb-1">Team A</label>
-            <select id="teamA" class="w-full border rounded-xl px-3 py-2">
-              <option value="" disabled selected>Choose Team A</option>
+            <label class=\"block text-sm mb-1\">Team A</label>
+            <select id=\"teamA\" class=\"w-full border rounded-xl px-3 py-2\">
+              <option value=\"\" disabled selected>Choose Team A</option>
             </select>
           </div>
           <div>
-            <label class="block text-sm mb-1">Team B</label>
-            <select id="teamB" class="w-full border rounded-xl px-3 py-2">
-              <option value="" disabled selected>Choose Team B</option>
+            <label class=\"block text-sm mb-1\">Team B</label>
+            <select id=\"teamB\" class=\"w-full border rounded-xl px-3 py-2\">
+              <option value=\"\" disabled selected>Choose Team B</option>
             </select>
           </div>
         </div>
-        <div id="teamWarn" class="text-xs text-rose-600"></div>
-        <div id="emptyTeams" class="hidden text-xs text-amber-700">No teams loaded. Tap <b>Settings</b>, paste your <code>/exec</code> URL, then tap <b>Reload teams</b>.</div>
+        <div id=\"teamWarn\" class=\"text-xs text-rose-600\"></div>
+        <div id=\"emptyTeams\" class=\"hidden text-xs text-amber-700\">No teams loaded. Tap <b>Settings</b>, paste your <code>/exec</code> URL, then tap <b>Reload teams</b>.</div>
       </div>
 
-      <div class="rounded-2xl border p-4 bg-white">
-        <div class="flex items-center justify-between mb-2">
-          <div class="font-semibold">Rounds</div>
-          <div class="flex gap-2">
-            <button id="addRound" class="px-3 py-2 rounded-xl border bg-white active:scale-95 transition">Add Round</button>
-            <button id="removeRound" class="px-3 py-2 rounded-xl border bg-white active:scale-95 transition">Remove Round</button>
+      <div class=\"rounded-2xl border p-4 bg-white\">
+        <div class=\"flex items-center justify-between mb-2\">
+          <div class=\"font-semibold\">Rounds</div>
+          <div class=\"flex gap-2\">
+            <button id=\"addRound\" class=\"px-3 py-2 rounded-xl border bg-white active:scale-95 transition\">Add Round</button>
+            <button id=\"removeRound\" class=\"px-3 py-2 rounded-xl border bg-white active:scale-95 transition\">Remove Round</button>
           </div>
         </div>
-        <div id="rounds" class="space-y-2"></div>
+        <div id=\"rounds\" class=\"space-y-2\"></div>
       </div>
 
-      <div class="flex items-center justify-between">
-        <div id="totals" class="text-sm text-slate-700"></div>
-        <button id="save" class="px-4 py-2 rounded-xl bg-emerald-600 text-white active:scale-95 transition" disabled>Save Match</button>
+      <div class=\"flex items-center justify-between\">
+        <div id=\"totals\" class=\"text-sm text-slate-700\"></div>
+        <button id=\"save\" class=\"px-4 py-2 rounded-xl bg-emerald-600 text-white active:scale-95 transition\" disabled>Save Match</button>
       </div>
-      <div id="saveMsg" class="text-sm text-emerald-700"></div>
+      <div id=\"saveMsg\" class=\"text-sm text-emerald-700\"></div>
     </section>
 
-    <!-- History -->
-    <section id="view-history" class="hidden space-y-3">
-      <div id="hist-skeleton" class="space-y-3">
-        <div class="h-20 rounded-xl glass border animate-pulse"></div>
-        <div class="h-20 rounded-xl glass border animate-pulse"></div>
+    <section id=\"view-history\" class=\"hidden space-y-3\">
+      <div id=\"hist-skeleton\" class=\"space-y-3\">
+        <div class=\"h-20 rounded-xl glass border animate-pulse\"></div>
+        <div class=\"h-20 rounded-xl glass border animate-pulse\"></div>
       </div>
     </section>
 
-    <!-- Settings Panel -->
-    <div id="settingsPanel" class="fixed inset-0 hidden z-50">
-      <div class="absolute inset-0 bg-black/30" id="closeSettings"></div>
-      <div class="absolute right-0 top-0 h-full w-full sm:w-[28rem] bg-white shadow-2xl p-4 overflow-auto">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-semibold">Settings</h2>
-          <button id="closeSettingsBtn" class="text-sm px-2 py-1 rounded-lg border">Close</button>
+    <div id=\"settingsPanel\" class=\"fixed inset-0 hidden z-50\">
+      <div class=\"absolute inset-0 bg-black/30\" id=\"closeSettings\"></div>
+      <div class=\"absolute right-0 top-0 h-full w-full sm:w-[28rem] bg-white shadow-2xl p-4 overflow-auto\">
+        <div class=\"flex items-center justify-between mb-3\">
+          <h2 class=\"text-lg font-semibold\">Settings</h2>
+          <button id=\"closeSettingsBtn\" class=\"text-sm px-2 py-1 rounded-lg border\">Close</button>
         </div>
-        <div class="space-y-3">
+        <div class=\"space-y-3\">
           <div>
-            <label class="block text-sm mb-1">Google Apps Script Web App URL (must end with <code>/exec</code>)</label>
-            <input id="apiUrl" type="url" class="w-full border rounded-xl px-3 py-2" placeholder="https://script.google.com/macros/s/.../exec" />
+            <label class=\"block text-sm mb-1\">Google Apps Script Web App URL (works with either <code>script.google.com/.../exec</code> or <code>script.googleusercontent.com/...macros/echo?... </code>)</label>
+            <input id=\"apiUrl\" type=\"url\" class=\"w-full border rounded-xl px-3 py-2\" placeholder=\"https://script.google.com/macros/s/.../exec\" />
           </div>
           <div>
-            <label class="block text-sm mb-1">Optional token (if you secure your web app)</label>
-            <input id="apiToken" type="text" class="w-full border rounded-xl px-3 py-2" placeholder="leave blank if not used" />
+            <label class=\"block text-sm mb-1\">Optional token (if you secure your web app)</label>
+            <input id=\"apiToken\" type=\"text\" class=\"w-full border rounded-xl px-3 py-2\" placeholder=\"leave blank if not used\" />
           </div>
-          <div class="flex gap-2">
-            <button id="saveSettings" class="px-3 py-2 rounded-xl bg-emerald-600 text-white">Save</button>
-            <a id="openBackend" class="px-3 py-2 rounded-xl border" href="#" target="_blank">Open backend</a>
+          <div class=\"flex gap-2\">
+            <button id=\"saveSettings\" class=\"px-3 py-2 rounded-xl bg-emerald-600 text-white\">Save</button>
+            <a id=\"openBackend\" class=\"px-3 py-2 rounded-xl border\" href=\"#\" target=\"_blank\">Open backend</a>
           </div>
-          <p id="settingsMsg" class="text-sm text-emerald-700"></p>
-          <div class="text-xs text-slate-500">Tip: You can also pass <code>?api=YOUR_EXEC_URL</code> in the page URL.</div>
+          <p id=\"settingsMsg\" class=\"text-sm text-emerald-700\"></p>
         </div>
       </div>
     </div>
 
-    <footer class="mt-8 text-center text-xs text-slate-500">
+    <footer class=\"mt-8 text-center text-xs text-slate-500\">
       Made for evening carrom fun 🏆
     </footer>
   </div>
@@ -160,16 +156,17 @@ function show(name) {
   }
 }
 
-function withToken(url) {
-  if (!store.token) return url;
-  const u = new URL(url);
-  u.searchParams.set('token', store.token);
-  return u.toString();
+function withTokenUrl(rawUrl) {
+  const u = new URL(rawUrl);
+  if (store.token) u.searchParams.set('token', store.token);
+  return u;
 }
 
 async function apiGet(action) {
   if (!store.url) throw new Error('Set your /exec URL in Settings.');
-  const res = await fetch(withToken(store.url + '?action=' + encodeURIComponent(action)));
+  const u = new URL(store.url);
+  u.searchParams.set('action', action);
+  const res = await fetch(withTokenUrl(u.toString()));
   const text = await res.text();
   try { return JSON.parse(text); }
   catch { throw new Error('Non-JSON response: ' + text.slice(0, 200)); }
@@ -267,7 +264,6 @@ function addRoundRow(a=0,b=0) {
   updateTotals();
 }
 
-// ===== interactions =====
 document.getElementById('tab-scoreboard').onclick = () => { show('scoreboard'); refresh(); };
 document.getElementById('tab-new').onclick = () => { show('new'); refresh(); };
 document.getElementById('tab-history').onclick = () => { show('history'); refresh(); };
@@ -308,17 +304,15 @@ document.getElementById('save').onclick = async () => {
   }
 };
 
-// Settings panel controls
 function openSettings() {
   qs('#apiUrl').value = store.url;
   qs('#apiToken').value = store.token;
-  const backendLink = store.url ? (store.url + '?action=getAll' + (store.token ? '&token=' + encodeURIComponent(store.token) : '')) : '#';
-  qs('#openBackend').href = backendLink;
+  const base = store.url ? (new URL(store.url).toString()) : '#';
+  const u = new URL(base); u.searchParams.set('action','getAll'); if (store.token) u.searchParams.set('token', store.token);
+  qs('#openBackend').href = u.toString();
   document.getElementById('settingsPanel').classList.remove('hidden');
 }
-function closeSettings() {
-  document.getElementById('settingsPanel').classList.add('hidden');
-}
+function closeSettings() { document.getElementById('settingsPanel').classList.add('hidden'); }
 document.getElementById('openSettings').onclick = openSettings;
 document.getElementById('openSettings2').onclick = openSettings;
 document.getElementById('closeSettings').onclick = closeSettings;
@@ -329,12 +323,12 @@ document.getElementById('saveSettings').onclick = (ev) => {
   store.url = qs('#apiUrl').value.trim();
   store.token = qs('#apiToken').value.trim();
   qs('#settingsMsg').textContent = 'Saved!';
-  document.getElementById('onboard').classList.add('hidden');
   setTimeout(()=>{ qs('#settingsMsg').textContent=''; closeSettings(); refresh(); }, 300);
 };
 
 async function refresh() {
   try {
+    document.getElementById('fetchError').classList.add('hidden');
     const data = await apiGet('getAll');
     teams = data.teams || [];
     matches = data.matches || [];
@@ -346,11 +340,12 @@ async function refresh() {
     updateSaveEnabled();
   } catch (e) {
     console.warn('Refresh failed:', e);
+    document.getElementById('fetchError').textContent = 'Error: ' + (e.message || e);
+    document.getElementById('fetchError').classList.remove('hidden');
     document.getElementById('emptyTeams').classList.remove('hidden');
   }
 }
 
-// init
 (function init(){
   const params = new URLSearchParams(location.search);
   const pApi = params.get('api'); if (pApi) store.url = pApi;
