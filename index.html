@@ -7,11 +7,12 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.7); }
+    /* Improve Android select reliability */
+    select { background-color: white; }
   </style>
 </head>
 <body class="bg-gradient-to-br from-rose-50 via-amber-50 to-sky-50 min-h-screen text-slate-900">
   <div class="mx-auto max-w-3xl p-4">
-    <!-- Header -->
     <header class="rounded-2xl glass border p-4 mb-4 flex items-center justify-between shadow-sm">
       <div class="flex items-center gap-3">
         <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-rose-400 to-orange-300"></div>
@@ -23,14 +24,12 @@
       <button id="openSettings" class="text-sm px-3 py-2 rounded-xl border bg-white hover:bg-slate-50 active:scale-95 transition">Settings</button>
     </header>
 
-    <!-- Onboarding banner (shown if API URL missing) -->
     <div id="onboard" class="hidden rounded-2xl border glass p-4 mb-4">
       <div class="font-semibold mb-2">Quick setup</div>
       <p class="text-sm mb-3">Paste your Google Apps Script <b>/exec</b> URL to connect your sheet.</p>
       <button id="openSettings2" class="px-3 py-2 rounded-xl bg-emerald-600 text-white">Open Settings</button>
     </div>
 
-    <!-- Tabs -->
     <div class="rounded-2xl glass border p-1 mb-4 flex gap-1 shadow-sm">
       <button id="tab-scoreboard" class="flex-1 px-3 py-2 rounded-xl bg-white">Scoreboard</button>
       <button id="tab-new" class="flex-1 px-3 py-2 rounded-xl">New Match</button>
@@ -46,9 +45,9 @@
       </div>
     </section>
 
-    <!-- New Match -->
+    <!-- New Match (NO glass on containers with selects to fix Android dropdowns) -->
     <section id="view-new" class="hidden space-y-4">
-      <div class="rounded-2xl glass border p-4 space-y-3">
+      <div class="rounded-2xl border p-4 bg-white space-y-3">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label class="block text-sm mb-1">Date</label>
@@ -57,16 +56,21 @@
           <div></div>
           <div>
             <label class="block text-sm mb-1">Team A</label>
-            <select id="teamA" class="w-full border rounded-xl px-3 py-2 bg-white"></select>
+            <select id="teamA" class="w-full border rounded-xl px-3 py-2">
+              <option value="" disabled selected>Choose Team A</option>
+            </select>
           </div>
           <div>
             <label class="block text-sm mb-1">Team B</label>
-            <select id="teamB" class="w-full border rounded-xl px-3 py-2 bg-white"></select>
+            <select id="teamB" class="w-full border rounded-xl px-3 py-2">
+              <option value="" disabled selected>Choose Team B</option>
+            </select>
           </div>
         </div>
+        <div id="teamWarn" class="text-xs text-rose-600"></div>
       </div>
 
-      <div class="rounded-2xl glass border p-4">
+      <div class="rounded-2xl border p-4 bg-white">
         <div class="flex items-center justify-between mb-2">
           <div class="font-semibold">Rounds</div>
           <div class="flex gap-2">
@@ -79,7 +83,7 @@
 
       <div class="flex items-center justify-between">
         <div id="totals" class="text-sm text-slate-700"></div>
-        <button id="save" class="px-4 py-2 rounded-xl bg-emerald-600 text-white active:scale-95 transition">Save Match</button>
+        <button id="save" class="px-4 py-2 rounded-xl bg-emerald-600 text-white active:scale-95 transition" disabled>Save Match</button>
       </div>
       <div id="saveMsg" class="text-sm text-emerald-700"></div>
     </section>
@@ -92,7 +96,7 @@
       </div>
     </section>
 
-    <!-- Settings Panel (no <dialog>, mobile friendly) -->
+    <!-- Settings Panel -->
     <div id="settingsPanel" class="fixed inset-0 hidden z-50">
       <div class="absolute inset-0 bg-black/30" id="closeSettings"></div>
       <div class="absolute right-0 top-0 h-full w-full sm:w-[28rem] bg-white shadow-2xl p-4 overflow-auto">
@@ -119,7 +123,6 @@
       </div>
     </div>
 
-    <!-- Footer -->
     <footer class="mt-8 text-center text-xs text-slate-500">
       Made for evening carrom fun 🏆
     </footer>
@@ -178,7 +181,6 @@ async function apiPost(form) {
   catch { throw new Error('Non-JSON response: ' + text.slice(0, 200)); }
 }
 
-// ===== renderers =====
 function renderScoreboard() {
   const root = views.scoreboard;
   root.innerHTML = '';
@@ -216,11 +218,17 @@ function populateTeamSelects() {
   const a = document.getElementById('teamA'), b = document.getElementById('teamB');
   const oldA = a.value, oldB = b.value;
   a.innerHTML=''; b.innerHTML='';
+  // placeholder
+  const phA = ce('option'); phA.value=''; phA.text='Choose Team A'; phA.disabled=true; phA.selected=true; a.append(phA);
+  const phB = ce('option'); phB.value=''; phB.text='Choose Team B'; phB.disabled=true; phB.selected=true; b.append(phB);
   teams.forEach(t => {
     const o1 = ce('option'); o1.value = t.id; o1.textContent = t.name; a.append(o1);
     const o2 = ce('option'); o2.value = t.id; o2.textContent = t.name; b.append(o2);
   });
-  if (teams.length >= 2) { a.value = oldA || teams[0].id; b.value = oldB || teams[1].id; }
+  // try to restore previous selection if valid
+  if (teams.find(t=>String(t.id)===oldA)) a.value = oldA;
+  if (teams.find(t=>String(t.id)===oldB)) b.value = oldB;
+  updateSaveEnabled();
 }
 
 function updateTotals() {
@@ -231,14 +239,26 @@ function updateTotals() {
   });
   const aTot = rounds.reduce((s,r)=>s+r[0],0);
   const bTot = rounds.reduce((s,r)=>s+r[1],0);
-  qs('#totals').textContent = `Totals → ${qs('#teamA').selectedOptions[0]?.textContent || 'A'}: ${aTot} | ${qs('#teamB').selectedOptions[0]?.textContent || 'B'}: ${bTot}`;
+  const aName = document.getElementById('teamA').selectedOptions[0]?.textContent || 'A';
+  const bName = document.getElementById('teamB').selectedOptions[0]?.textContent || 'B';
+  qs('#totals').textContent = `Totals → ${aName}: ${aTot} | ${bName}: ${bTot}`;
+}
+
+function updateSaveEnabled() {
+  const a = document.getElementById('teamA').value;
+  const b = document.getElementById('teamB').value;
+  const warn = document.getElementById('teamWarn');
+  const save = document.getElementById('save');
+  if (!a || !b) { warn.textContent = 'Pick both teams.'; save.disabled = true; return; }
+  if (a === b) { warn.textContent = 'Teams must be different.'; save.disabled = true; return; }
+  warn.textContent = ''; save.disabled = false;
 }
 
 function addRoundRow(a=0,b=0) {
   const row = ce('div','round-row grid grid-cols-3 gap-2');
   const label = ce('div','self-center'); label.textContent = `Round ${document.querySelectorAll('.round-row').length+1}`;
-  const ia = ce('input','ra border rounded-xl px-3 py-2 bg-white'); ia.type='number'; ia.min='0'; ia.value=a; ia.oninput=updateTotals;
-  const ib = ce('input','rb border rounded-xl px-3 py-2 bg-white'); ib.type='number'; ib.min='0'; ib.value=b; ib.oninput=updateTotals;
+  const ia = ce('input','ra border rounded-xl px-3 py-2 bg-white'); ia.type='number'; ia.min='0'; ia.value=a; ia.oninput=()=>{ updateTotals(); };
+  const ib = ce('input','rb border rounded-xl px-3 py-2 bg-white'); ib.type='number'; ib.min='0'; ib.value=b; ib.oninput=()=>{ updateTotals(); };
   row.append(label, ia, ib);
   qs('#rounds').append(row);
   updateTotals();
@@ -246,7 +266,7 @@ function addRoundRow(a=0,b=0) {
 
 // ===== interactions =====
 document.getElementById('tab-scoreboard').onclick = () => { show('scoreboard'); refresh(); };
-document.getElementById('tab-new').onclick = () => { show('new'); };
+document.getElementById('tab-new').onclick = () => { show('new'); refresh(); }; // refresh to ensure teams list
 document.getElementById('tab-history').onclick = () => { show('history'); refresh(); };
 
 document.getElementById('addRound').onclick = () => addRoundRow(0,0);
@@ -255,15 +275,15 @@ document.getElementById('removeRound').onclick = () => {
   if (rows.length > 1) rows[rows.length-1].remove();
   updateTotals();
 };
-document.getElementById('teamA').onchange = updateTotals;
-document.getElementById('teamB').onchange = updateTotals;
+document.getElementById('teamA').onchange = ()=>{ updateTotals(); updateSaveEnabled(); };
+document.getElementById('teamB').onchange = ()=>{ updateTotals(); updateSaveEnabled(); };
 
 document.getElementById('save').onclick = async () => {
   try {
     const date = qs('#date').value || new Date().toISOString().slice(0,10);
     const teamAId = qs('#teamA').value;
     const teamBId = qs('#teamB').value;
-    if (teamAId === teamBId) { alert('Pick two different teams'); return; }
+    if (!teamAId || !teamBId || teamAId === teamBId) return;
     const rounds = Array.from(document.querySelectorAll('.round-row')).map(row => {
       const a = Number(row.querySelector('.ra').value || 0);
       const b = Number(row.querySelector('.rb').value || 0);
@@ -305,7 +325,7 @@ document.getElementById('saveSettings').onclick = (ev) => {
   store.url = qs('#apiUrl').value.trim();
   store.token = qs('#apiToken').value.trim();
   qs('#settingsMsg').textContent = 'Saved!';
-  setTimeout(()=>{ qs('#settingsMsg').textContent=''; closeSettings(); refresh(); }, 400);
+  setTimeout(()=>{ qs('#settingsMsg').textContent=''; closeSettings(); refresh(); }, 300);
 };
 
 async function refresh() {
@@ -318,6 +338,7 @@ async function refresh() {
     renderHistory();
     populateTeamSelects();
     updateTotals();
+    updateSaveEnabled();
   } catch (e) {
     console.warn('Refresh failed:', e);
   }
@@ -325,7 +346,6 @@ async function refresh() {
 
 // init
 (function init(){
-  // URL param support: ?api=
   const params = new URLSearchParams(location.search);
   const pApi = params.get('api'); if (pApi) store.url = pApi;
   const pTok = params.get('token'); if (pTok) store.token = pTok;
@@ -334,7 +354,6 @@ async function refresh() {
   addRoundRow(0,0);
   show('scoreboard');
 
-  // Show onboarding if no URL set
   if (!store.url) {
     document.getElementById('onboard').classList.remove('hidden');
   } else {
