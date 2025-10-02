@@ -1,83 +1,152 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Carrom Scoreboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Carrom Teams — Cloud</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html, body { height: 100%; }
+  .card { border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+  .btn { transition: transform .05s ease; }
+  .btn:active { transform: scale(.98); }
+
+  /* Larger typography on the scoreboard for tablet visibility */
+  .team-name { font-size: 1.15rem; }
+  @media (min-width: 640px) { .team-name { font-size: 1.35rem; } }
+  .team-score { font-size: 2rem; line-height: 1; }
+  @media (min-width: 640px) { .team-score { font-size: 2.5rem; } }
+  .team-members { font-size: 0.95rem; }
+
+  /* Top team highlighting */
+  .topCard { outline: 2px solid #f59e0b; box-shadow: 0 8px 30px rgba(245,158,11,.25); position: relative; padding-right: 76px !important; }
+  .topBadge { position: absolute; top: -8px; right: -8px; width: 40px; height: 40px; z-index: 10;
+              border-radius: 9999px; background:
+              radial-gradient(circle at 30% 30%, #fff8, #0000),
+              linear-gradient(135deg, #fde047, #f59e0b 60%, #d97706);
+              display:flex; align-items:center; justify-content:center;
+              box-shadow: 0 6px 18px rgba(0,0,0,.15); }
+  .topBadge svg { width: 20px; height: 20px; }
+  @keyframes spinRing { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+  .ring { position:absolute; inset:-3px; border-radius:9999px; border:3px dashed rgba(0,0,0,.12); animation: spinRing 6s linear infinite; }
+</style>
 </head>
-<body class="bg-slate-50 text-slate-900">
-  <div class="max-w-3xl mx-auto p-4">
-    <header class="flex items-center justify-between mb-4">
-      <h1 class="text-2xl font-bold">Carrom Scoreboard</h1>
-      <button id="openSettings" class="text-sm underline">Settings</button>
+<body class="min-h-screen bg-gradient-to-br from-amber-50 via-rose-50 to-sky-50 text-slate-900">
+  <div class="mx-auto max-w-4xl px-4 py-4">
+    <header class="card rounded-2xl p-4 mb-4 flex items-center justify-between bg-white">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-rose-400 to-orange-300"></div>
+        <div>
+          <h1 class="text-2xl font-bold">Carrom Teams</h1>
+          <p class="text-sm text-slate-600">Google Sheet backend — players give points to their own team</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="openSettings" class="btn px-3 py-2 rounded-xl border bg-white text-sm">Settings</button>
+      </div>
     </header>
 
-    <div class="mb-4 flex gap-2">
-      <button id="tab-scoreboard" class="px-3 py-2 rounded-lg bg-slate-200">Scoreboard</button>
-      <button id="tab-new" class="px-3 py-2 rounded-lg">New Match</button>
-      <button id="tab-history" class="px-3 py-2 rounded-lg">History</button>
+    <div class="card rounded-2xl p-1 mb-4 bg-white flex gap-1">
+      <button id="tab-score" class="flex-1 px-3 py-2 rounded-xl bg-white">Scoreboard</button>
+      <button id="tab-new" class="flex-1 px-3 py-2 rounded-xl">New Match</button>
+      <button id="tab-hist" class="flex-1 px-3 py-2 rounded-xl">History</button>
     </div>
 
-    <section id="view-scoreboard" class="space-y-3"></section>
-
-    <section id="view-new" class="hidden space-y-4">
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-sm mb-1">Date</label>
-          <input id="date" type="date" class="w-full border rounded-lg px-3 py-2" />
-        </div>
-        <div></div>
-        <div>
-          <label class="block text-sm mb-1">Team A</label>
-          <select id="teamA" class="w-full border rounded-lg px-3 py-2"></select>
-        </div>
-        <div>
-          <label class="block text-sm mb-1">Team B</label>
-          <select id="teamB" class="w-full border rounded-lg px-3 py-2"></select>
-        </div>
-      </div>
-
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <div class="font-semibold">Rounds</div>
-          <div class="flex gap-2">
-            <button id="addRound" class="px-3 py-1 rounded-lg border">Add Round</button>
-            <button id="removeRound" class="px-3 py-1 rounded-lg border">Remove Round</button>
-          </div>
-        </div>
-        <div id="rounds" class="space-y-2"></div>
-      </div>
-
-      <div id="totals" class="text-sm text-slate-700"></div>
-      <button id="save" class="px-4 py-2 rounded-xl bg-emerald-600 text-white">Save Match</button>
-      <div id="saveMsg" class="text-sm text-emerald-700"></div>
+    <!-- Scoreboard -->
+    <section id="view-score" class="space-y-3">
+      <div id="teamsGrid" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+      <div id="topNote" class="text-center text-sm text-amber-700"></div>
     </section>
 
-    <section id="view-history" class="hidden space-y-3"></section>
+    <!-- New Match -->
+    <section id="view-new" class="hidden space-y-4">
+      <div class="card rounded-2xl p-4 bg-white space-y-3">
+        <div class="text-base text-slate-700">Pick four distinct players, place them into Side A and Side B (two per side), then choose the winner. Each winning player adds <span id="ptsPerHeadLabel">5</span> points to their own team.</div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="space-y-2">
+            <div class="font-semibold text-base">All Players</div>
+            <div id="playersList" class="flex flex-wrap gap-2"></div>
+          </div>
+          <div class="space-y-2">
+            <div class="font-semibold text-base">Side A</div>
+            <div class="grid grid-cols-2 gap-2">
+              <select id="a1" class="border rounded-xl px-3 py-2 bg-white"></select>
+              <select id="a2" class="border rounded-xl px-3 py-2 bg-white"></select>
+            </div>
+            <div class="text-sm text-slate-500">Winner?</div>
+            <div class="flex gap-4 text-base">
+              <label class="flex items-center gap-2"><input type="radio" name="winner" value="A"> <span>Side A</span></label>
+              <label class="flex items-center gap-2"><input type="radio" name="winner" value="B"> <span>Side B</span></label>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div class="font-semibold text-base">Side B</div>
+            <div class="grid grid-cols-2 gap-2">
+              <select id="b1" class="border rounded-xl px-3 py-2 bg-white"></select>
+              <select id="b2" class="border rounded-xl px-3 py-2 bg-white"></select>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mt-2">
+              <button id="swapSides" class="btn border rounded-xl px-3 py-2 bg-white">Swap</button>
+              <button id="clearMatch" class="btn border rounded-xl px-3 py-2 bg-white">Clear</button>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-base mb-1">Points per winning player</label>
+            <input id="ptsPerHead" type="number" min="1" value="5" class="border rounded-xl px-3 py-2 bg-white w-full">
+          </div>
+          <div>
+            <label class="block text-base mb-1">Date</label>
+            <input id="matchDate" type="date" class="border rounded-xl px-3 py-2 bg-white w-full">
+          </div>
+          <div class="flex items-end">
+            <button id="saveMatch" class="btn px-4 py-2 rounded-xl bg-emerald-600 text-white w-full text-base">Save Match</button>
+          </div>
+        </div>
+        <div id="warn" class="text-base text-rose-600"></div>
+      </div>
+    </section>
 
-    <dialog id="settings" class="rounded-xl p-0 w-full max-w-xl">
-      <form method="dialog" class="p-4 space-y-3">
-        <h2 class="text-lg font-semibold">Settings</h2>
-        <div>
-          <label class="block text-sm mb-1">Google Apps Script Web App URL (must end with /exec)</label>
-          <input id="apiUrl" type="url" class="w-full border rounded-lg px-3 py-2" placeholder="https://script.google.com/macros/s/.../exec" />
-        </div>
-        <div>
-          <label class="block text-sm mb-1">Optional token (if you secure your web app)</label>
-          <input id="apiToken" type="text" class="w-full border rounded-lg px-3 py-2" placeholder="leave blank if not used" />
-        </div>
-        <div class="flex justify-end gap-2 pt-2">
-          <button id="saveSettings" class="px-3 py-2 rounded-lg bg-emerald-600 text-white">Save</button>
-          <button class="px-3 py-2 rounded-lg border" value="cancel">Close</button>
-        </div>
-        <p id="settingsMsg" class="text-sm text-emerald-700"></p>
-      </form>
-    </dialog>
+    <!-- History -->
+    <section id="view-hist" class="hidden space-y-3">
+      <div id="histList" class="space-y-3"></div>
+    </section>
 
+    <!-- Settings side panel -->
+    <div id="settingsPanel" class="fixed inset-0 hidden z-50">
+      <div class="absolute inset-0 bg-black/30" id="closeSettings"></div>
+      <div class="absolute right-0 top-0 h-full w-full sm:w-[28rem] bg-white shadow-2xl p-4 overflow-auto">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Settings</h2>
+          <button id="closeSettingsBtn" class="text-sm px-2 py-1 rounded-lg border">Close</button>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-sm mb-1">Google Apps Script Web App URL</label>
+            <input id="apiUrl" type="url" class="w-full border rounded-xl px-3 py-2" placeholder="https://script.google.com/macros/s/.../exec OR https://script.googleusercontent.com/...macros/echo?..."/>
+          </div>
+          <div>
+            <label class="block text-sm mb-1">Optional token (if you secure your web app)</label>
+            <input id="apiToken" type="text" class="w-full border rounded-xl px-3 py-2" placeholder="leave blank if not used" />
+          </div>
+          <div class="flex gap-2">
+            <button id="saveSettings" class="px-3 py-2 rounded-xl bg-emerald-600 text-white">Save</button>
+            <a id="openBackend" class="px-3 py-2 rounded-xl border" href="#" target="_blank">Open backend</a>
+          </div>
+          <p id="settingsMsg" class="text-sm text-emerald-700"></p>
+          <div class="text-xs text-slate-500">Tip: You can also pass <code>?api=YOUR_EXEC_URL</code> in the page URL.</div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="mt-8 text-center text-sm text-slate-500">
+      Built for evening carrom fun 🏆
+    </footer>
   </div>
 
 <script>
+// ---------- storage for API URL ----------
 const store = {
   get url() { return localStorage.getItem('carrom_api_url') || ''; },
   set url(v) { localStorage.setItem('carrom_api_url', v); },
@@ -87,181 +156,230 @@ const store = {
 const qs = s => document.querySelector(s);
 const ce = (tag, cls='') => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
 
-let teams = [];
-let matches = [];
-let wins = {};
+let TEAMS = [];       // [{id,name,members:[...]}, ...]
+let SCORES = {};      // {teamId: points}
+let HISTORY = [];     // raw rows for history
+let ALL_PLAYERS = [];
+let playerToTeamId = {};
 
-const views = {
-  scoreboard: document.getElementById('view-scoreboard'),
-  new: document.getElementById('view-new'),
-  history: document.getElementById('view-history'),
-};
-
-function show(name) {
-  for (const k in views) views[k].classList.toggle('hidden', k !== name);
-  for (const id of ['tab-scoreboard','tab-new','tab-history']) {
-    const active = ('tab-' + name) === id;
-    document.getElementById(id).classList.toggle('bg-slate-200', active);
-  }
-}
-
-function withToken(url) {
-  if (!store.token) return url;
-  const u = new URL(url);
-  u.searchParams.set('token', store.token);
+// ---------- helpers to work with either /exec or /macros/echo? ----------
+function buildUrl(base, extraParams) {
+  const u = new URL(base);
+  for (const [k, v] of Object.entries(extraParams || {})) u.searchParams.set(k, v);
+  if (store.token) u.searchParams.set('token', store.token);
   return u.toString();
 }
 
 async function apiGet(action) {
-  if (!store.url) throw new Error('Set your /exec URL in Settings (top-right).');
-  const res = await fetch(withToken(store.url + '?action=' + encodeURIComponent(action)));
+  if (!store.url) throw new Error('Set your Web App URL in Settings.');
+  const url = buildUrl(store.url, { action });
+  const res = await fetch(url);
   const text = await res.text();
   try { return JSON.parse(text); }
-  catch { throw new Error('Non-JSON response: ' + text.slice(0, 200)); }
+  catch { throw new Error('Non-JSON response: ' + text.slice(0, 180)); }
 }
 
 async function apiPost(form) {
-  if (!store.url) throw new Error('Set your /exec URL in Settings (top-right).');
+  if (!store.url) throw new Error('Set your Web App URL in Settings.');
   if (store.token) form.append('token', store.token);
   const res = await fetch(store.url, { method:'POST', body: form });
   const text = await res.text();
   try { return JSON.parse(text); }
-  catch { throw new Error('Non-JSON response: ' + text.slice(0, 200)); }
+  catch { throw new Error('Non-JSON response: ' + text.slice(0, 180)); }
 }
 
+// ---------- Tabs ----------
+const views = { score: qs('#view-score'), new: qs('#view-new'), hist: qs('#view-hist') };
+function setTab(name) {
+  for (const [k, el] of Object.entries(views)) el.classList.toggle('hidden', k !== name);
+  qs('#tab-score').classList.toggle('bg-white', name==='score');
+  qs('#tab-new').classList.toggle('bg-white', name==='new');
+  qs('#tab-hist').classList.toggle('bg-white', name==='hist');
+}
+
+// ---------- Scoreboard ----------
 function renderScoreboard() {
-  const root = views.scoreboard;
-  root.innerHTML = '';
-  teams.forEach(t => {
-    const card = ce('div', 'rounded-xl border bg-white p-4 flex items-center justify-between');
-    const name = ce('div', 'font-semibold'); name.textContent = t.name;
-    const badge = ce('div', 'px-3 py-1 rounded-lg bg-slate-100'); badge.textContent = 'Wins: ' + (wins[t.id] || 0);
-    card.append(name, badge);
-    root.append(card);
+  const grid = qs('#teamsGrid'); grid.innerHTML = '';
+  const scores = TEAMS.map(t => SCORES[t.id] || 0);
+  const max = Math.max(0, ...scores);
+  const topSet = new Set(TEAMS.filter(t => (SCORES[t.id]||0) === max && max > 0).map(t => t.id));
+
+  TEAMS.forEach((t, i) => {
+    const isTop = topSet.has(t.id);
+    const card = ce('div', 'card rounded-2xl bg-white p-4 space-y-2 ' + (isTop ? 'topCard' : ''));
+    const header = ce('div', 'flex items-start justify-between');
+    const left = ce('div', 'flex items-center gap-2');
+    const dot = ce('div', 'h-3 w-3 rounded-full ' + ['bg-rose-400','bg-amber-400','bg-sky-400'][i%3]);
+    const name = ce('div', 'team-name font-semibold'); name.textContent = t.name;
+    left.append(dot, name);
+    const score = ce('div', 'team-score font-extrabold'); score.textContent = SCORES[t.id] || 0;
+    header.append(left, score);
+    card.append(header);
+    const members = ce('div', 'team-members text-slate-600'); members.textContent = (t.members||[]).join(' & ');
+    card.append(members);
+    if (isTop) {
+      const badge = ce('div','topBadge');
+      badge.innerHTML = '<div class="ring"></div><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17l-4 2 1-4-3-3 4-.5L12 7l2 4.5 4 .5-3 3 1 4-4-2z"/></svg>';
+      card.append(badge);
+    }
+    grid.append(card);
   });
+
+  const note = qs('#topNote');
+  if (max > 0) {
+    const topNames = TEAMS.filter(t => topSet.has(t.id)).map(t => t.name).join(' & ');
+    note.textContent = topSet.size > 1 ? `Top: tie — ${topNames}` : `Top: ${topNames}`;
+  } else note.textContent = '';
+}
+
+// ---------- Players & Match ----------
+function rebuildPlayerLists() {
+  ALL_PLAYERS = [...new Set(TEAMS.flatMap(t => t.members || []))].sort();
+  playerToTeamId = {};
+  TEAMS.forEach(t => (t.members||[]).forEach(m => playerToTeamId[m]=t.id));
+
+  const list = qs('#playersList'); list.innerHTML = '';
+  ALL_PLAYERS.forEach(p => {
+    const b = ce('button', 'px-3 py-1 rounded-full border bg-white text-sm btn'); b.textContent = p;
+    b.onclick = () => addPlayerToNextSlot(p);
+    list.append(b);
+  });
+  for (const id of ['a1','a2','b1','b2']) {
+    const sel = qs('#'+id);
+    sel.innerHTML = '<option value="">--</option>' + ALL_PLAYERS.map(p=>`<option value="${p}">${p}</option>`).join('');
+    sel.onchange = enforceDistinctPlayers;
+  }
+}
+
+function enforceDistinctPlayers() {
+  const chosen = new Set(['a1','a2','b1','b2'].map(id => qs('#'+id).value).filter(Boolean));
+  for (const id of ['a1','a2','b1','b2']) {
+    const sel = qs('#'+id);
+    const cur = sel.value;
+    Array.from(sel.options).forEach(opt => {
+      if (!opt.value) return;
+      opt.disabled = (opt.value !== cur && chosen.has(opt.value));
+    });
+  }
+}
+
+function addPlayerToNextSlot(p) {
+  for (const id of ['a1','a2','b1','b2']) {
+    const sel = qs('#'+id);
+    if (!sel.value) { sel.value = p; enforceDistinctPlayers(); return; }
+  }
+}
+
+function clearMatch() {
+  ['a1','a2','b1','b2'].forEach(id => qs('#'+id).value='');
+  enforceDistinctPlayers();
+  document.querySelectorAll('input[name="winner"]').forEach(r => r.checked=false);
+  qs('#warn').textContent = '';
+}
+
+function swapSides() {
+  const a1 = qs('#a1').value, a2 = qs('#a2').value, b1 = qs('#b1').value, b2 = qs('#b2').value;
+  qs('#a1').value = b1; qs('#a2').value = b2; qs('#b1').value = a1; qs('#b2').value = a2;
+  enforceDistinctPlayers();
 }
 
 function renderHistory() {
-  const root = views.history;
-  root.innerHTML = '';
-  const nameOf = id => (teams.find(t => t.id === Number(id)) || {}).name || ('Team ' + id);
-  matches.slice().reverse().forEach(m => {
-    const card = ce('div', 'rounded-xl border bg-white p-4 space-y-1');
-    const h = ce('div', 'font-semibold'); h.textContent = `${m.date} — ${nameOf(m.teamAId)} vs ${nameOf(m.teamBId)}`;
-    const tot = ce('div'); tot.textContent = `Totals: ${m.teamATotal} - ${m.teamBTotal}`;
-    const rounds = JSON.parse(m.roundsJson || '[]');
-    const rl = ce('div', 'text-sm text-slate-700');
-    rl.innerHTML = rounds.map((r,i)=>`• Round ${i+1}: ${r[0]} - ${r[1]}`).join('<br>');
-    card.append(h, rl, tot);
-    root.append(card);
-  });
-}
-
-function populateTeamSelects() {
-  const a = document.getElementById('teamA'), b = document.getElementById('teamB');
-  const oldA = a.value, oldB = b.value;
-  a.innerHTML=''; b.innerHTML='';
-  teams.forEach(t => {
-    const o1 = ce('option'); o1.value = t.id; o1.textContent = t.name; a.append(o1);
-    const o2 = ce('option'); o2.value = t.id; o2.textContent = t.name; b.append(o2);
-  });
-  if (teams.length >= 2) { a.value = oldA || teams[0].id; b.value = oldB || teams[1].id; }
-}
-
-function updateTotals() {
-  const rounds = Array.from(document.querySelectorAll('.round-row')).map(row => {
-    const a = Number(row.querySelector('.ra').value || 0);
-    const b = Number(row.querySelector('.rb').value || 0);
-    return [a,b];
-  });
-  const aTot = rounds.reduce((s,r)=>s+r[0],0);
-  const bTot = rounds.reduce((s,r)=>s+r[1],0);
-  qs('#totals').textContent = `Totals → ${qs('#teamA').selectedOptions[0]?.textContent || 'A'}: ${aTot} | ${qs('#teamB').selectedOptions[0]?.textContent || 'B'}: ${bTot}`;
-}
-
-function addRoundRow(a=0,b=0) {
-  const row = ce('div','round-row grid grid-cols-3 gap-2');
-  const label = ce('div','self-center'); label.textContent = `Round ${document.querySelectorAll('.round-row').length+1}`;
-  const ia = ce('input','ra border rounded-lg px-3 py-2'); ia.type='number'; ia.min='0'; ia.value=a; ia.oninput=updateTotals;
-  const ib = ce('input','rb border rounded-lg px-3 py-2'); ib.type='number'; ib.min='0'; ib.value=b; ib.oninput=updateTotals;
-  row.append(label, ia, ib);
-  qs('#rounds').append(row);
-  updateTotals();
-}
-
-document.getElementById('tab-scoreboard').onclick = () => { show('scoreboard'); refresh(); };
-document.getElementById('tab-new').onclick = () => { show('new'); };
-document.getElementById('tab-history').onclick = () => { show('history'); refresh(); };
-
-document.getElementById('addRound').onclick = () => addRoundRow(0,0);
-document.getElementById('removeRound').onclick = () => {
-  const rows = document.querySelectorAll('.round-row');
-  if (rows.length > 1) rows[rows.length-1].remove();
-  updateTotals();
-};
-document.getElementById('teamA').onchange = updateTotals;
-document.getElementById('teamB').onchange = updateTotals;
-
-document.getElementById('save').onclick = async () => {
-  try {
-    const date = qs('#date').value || new Date().toISOString().slice(0,10);
-    const teamAId = qs('#teamA').value;
-    const teamBId = qs('#teamB').value;
-    if (teamAId === teamBId) { alert('Pick two different teams'); return; }
-    const rounds = Array.from(document.querySelectorAll('.round-row')).map(row => {
-      const a = Number(row.querySelector('.ra').value || 0);
-      const b = Number(row.querySelector('.rb').value || 0);
-      return [a,b];
-    });
-    const body = new URLSearchParams();
-    body.append('action','addMatch');
-    body.append('date', date);
-    body.append('teamAId', teamAId);
-    body.append('teamBId', teamBId);
-    body.append('rounds', JSON.stringify(rounds));
-    const j = await apiPost(body);
-    document.getElementById('saveMsg').textContent = j.ok ? 'Saved!' : ('Error: ' + (j.error || 'unknown'));
-    await refresh();
-    show('scoreboard');
-  } catch (e) {
-    alert(e.message || e);
+  const root = qs('#histList'); root.innerHTML = '';
+  const items = HISTORY.slice().reverse();
+  if (!items.length) {
+    const empty = ce('div','card rounded-2xl bg-white p-4 text-base text-slate-600'); empty.textContent = 'No matches saved yet.'; root.append(empty); return;
   }
-};
+  items.forEach(m => {
+    const card = ce('div','card rounded-2xl bg-white p-4 space-y-1');
+    const line = ce('div','font-semibold text-base'); line.textContent = `${m.date} — ${m.a1} & ${m.a2} vs ${m.b1} & ${m.b2} — Winner: ${m.winnerSide}`;
+    const award = ce('div','text-base text-slate-700'); award.textContent = `Awarded +${m.pointsPerHead} to: ${m.winners}`;
+    const teamsAward = ce('div','text-sm text-slate-600'); teamsAward.textContent = `Team awards: ${m.teamAwardSummary}`;
+    card.append(line, award, teamsAward); root.append(card);
+  });
+}
 
-document.getElementById('openSettings').onclick = () => {
+async function saveMatch() {
+  const a1 = qs('#a1').value, a2 = qs('#a2').value, b1 = qs('#b1').value, b2 = qs('#b2').value;
+  const winner = (document.querySelector('input[name="winner"]:checked')||{}).value;
+  const pts = Math.max(1, Number(qs('#ptsPerHead').value||5));
+  qs('#ptsPerHeadLabel').textContent = pts;
+
+  if (!a1 || !a2 || !b1 || !b2) { qs('#warn').textContent = 'Please select four distinct players.'; return; }
+  if (!winner) { qs('#warn').textContent = 'Please choose the winning side.'; return; }
+
+  const date = qs('#matchDate').value || new Date().toISOString().slice(0,10);
+  const body = new URLSearchParams();
+  body.append('action','addMatch');
+  body.append('date', date);
+  body.append('a1', a1); body.append('a2', a2);
+  body.append('b1', b1); body.append('b2', b2);
+  body.append('winnerSide', winner);
+  body.append('pointsPerHead', String(pts));
+
+  try {
+    const j = await apiPost(body);
+    if (!j.ok) throw new Error(j.error || 'Unknown error');
+    qs('#warn').textContent = 'Saved!';
+    await refreshAll();
+    setTab('score');
+  } catch (e) {
+    qs('#warn').textContent = 'Error: ' + (e.message || e);
+  }
+}
+
+// ---------- Settings ----------
+function openSettings() {
   qs('#apiUrl').value = store.url;
   qs('#apiToken').value = store.token;
-  document.getElementById('settings').showModal();
-};
-
-document.getElementById('saveSettings').onclick = (ev) => {
+  qs('#openBackend').href = store.url ? buildUrl(store.url, { action:'getAll' }) : '#';
+  qs('#settingsPanel').classList.remove('hidden');
+}
+function closeSettings() { qs('#settingsPanel').classList.add('hidden'); }
+qs('#openSettings').onclick = openSettings;
+qs('#closeSettings').onclick = closeSettings;
+qs('#closeSettingsBtn').onclick = closeSettings;
+qs('#saveSettings').onclick = (ev) => {
   ev.preventDefault();
   store.url = qs('#apiUrl').value.trim();
   store.token = qs('#apiToken').value.trim();
   qs('#settingsMsg').textContent = 'Saved!';
-  setTimeout(()=>document.getElementById('settings').close(), 400);
+  setTimeout(()=>{ qs('#settingsMsg').textContent=''; closeSettings(); refreshAll(); }, 300);
 };
 
-async function refresh() {
+// ---------- Refresh from backend ----------
+async function refreshAll() {
   try {
     const data = await apiGet('getAll');
-    teams = data.teams || [];
-    matches = data.matches || [];
-    wins = data.wins || {};
+    TEAMS = data.teams || [];
+    SCORES = data.scores || {};
+    HISTORY = data.history || [];
+    rebuildPlayerLists();
     renderScoreboard();
     renderHistory();
-    populateTeamSelects();
-    updateTotals();
+    qs('#matchDate').value = new Date().toISOString().slice(0,10);
+    enforceDistinctPlayers();
   } catch (e) {
-    console.warn('Refresh failed:', e);
+    alert('Backend error: ' + (e.message || e));
   }
 }
 
+// wire up tabs & actions
+qs('#tab-score').onclick = () => setTab('score');
+qs('#tab-new').onclick = () => setTab('new');
+qs('#tab-hist').onclick = () => setTab('hist');
+qs('#swapSides').onclick = swapSides;
+qs('#clearMatch').onclick = clearMatch;
+qs('#saveMatch').onclick = saveMatch;
+
+// init
 (function init(){
-  document.getElementById('date').value = new Date().toISOString().slice(0,10);
-  addRoundRow(0,0);
-  show('scoreboard');
-  if (store.url) refresh();
+  setTab('score');
+  // Optional URL params ?api= & ?token=
+  const params = new URLSearchParams(location.search);
+  const pApi = params.get('api'); if (pApi) store.url = pApi;
+  const pTok = params.get('token'); if (pTok) store.token = pTok;
+
+  if (store.url) refreshAll();
 })();
 </script>
 </body>
