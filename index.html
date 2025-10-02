@@ -3,22 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Carrom Teams — Cloud</title>
+<title>Carrom Teams — Cloud (Stats + Confetti + Login)</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 <style>
   html, body { height: 100%; }
   .card { border: 1px solid rgba(0,0,0,0.08); box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
   .btn { transition: transform .05s ease; }
   .btn:active { transform: scale(.98); }
 
-  /* Larger typography on the scoreboard for tablet visibility */
   .team-name { font-size: 1.15rem; }
   @media (min-width: 640px) { .team-name { font-size: 1.35rem; } }
   .team-score { font-size: 2rem; line-height: 1; }
   @media (min-width: 640px) { .team-score { font-size: 2.5rem; } }
   .team-members { font-size: 0.95rem; }
 
-  /* Top team highlighting */
   .topCard { outline: 2px solid #f59e0b; box-shadow: 0 8px 30px rgba(245,158,11,.25); position: relative; padding-right: 76px !important; }
   .topBadge { position: absolute; top: -8px; right: -8px; width: 40px; height: 40px; z-index: 10;
               border-radius: 9999px; background:
@@ -32,7 +31,7 @@
 </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-amber-50 via-rose-50 to-sky-50 text-slate-900">
-  <div class="mx-auto max-w-4xl px-4 py-4">
+  <div class="mx-auto max-w-5xl px-4 py-4">
     <header class="card rounded-2xl p-4 mb-4 flex items-center justify-between bg-white">
       <div class="flex items-center gap-3">
         <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-rose-400 to-orange-300"></div>
@@ -50,6 +49,7 @@
       <button id="tab-score" class="flex-1 px-3 py-2 rounded-xl bg-white">Scoreboard</button>
       <button id="tab-new" class="flex-1 px-3 py-2 rounded-xl">New Match</button>
       <button id="tab-hist" class="flex-1 px-3 py-2 rounded-xl">History</button>
+      <button id="tab-stats" class="flex-1 px-3 py-2 rounded-xl">Stats</button>
     </div>
 
     <!-- Scoreboard -->
@@ -113,6 +113,37 @@
       <div id="histList" class="space-y-3"></div>
     </section>
 
+    <!-- Stats -->
+    <section id="view-stats" class="hidden space-y-4">
+      <div class="card rounded-2xl p-4 bg-white">
+        <h2 class="text-xl font-semibold mb-3">Team Stats</h2>
+        <div id="teamStats" class="grid grid-cols-1 md:grid-cols-3 gap-3"></div>
+      </div>
+      <div class="card rounded-2xl p-4 bg-white">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xl font-semibold">Player Leaderboard (MVP)</h2>
+          <div class="text-sm text-slate-600" id="totalMatches"></div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="text-sm text-slate-600">
+                <th class="py-2">#</th>
+                <th class="py-2">Player</th>
+                <th class="py-2">Team</th>
+                <th class="py-2">Points</th>
+                <th class="py-2">Played</th>
+                <th class="py-2">Wins</th>
+                <th class="py-2">Win rate</th>
+                <th class="py-2">Avg pts / match</th>
+              </tr>
+            </thead>
+            <tbody id="playerTable" class="text-base"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <!-- Settings side panel -->
     <div id="settingsPanel" class="fixed inset-0 hidden z-50">
       <div class="absolute inset-0 bg-black/30" id="closeSettings"></div>
@@ -133,9 +164,36 @@
           <div class="flex gap-2">
             <button id="saveSettings" class="px-3 py-2 rounded-xl bg-emerald-600 text-white">Save</button>
             <a id="openBackend" class="px-3 py-2 rounded-xl border" href="#" target="_blank">Open backend</a>
+            <button id="logoutBtn" class="ml-auto px-3 py-2 rounded-xl border text-sm">Logout</button>
           </div>
           <p id="settingsMsg" class="text-sm text-emerald-700"></p>
           <div class="text-xs text-slate-500">Tip: You can also pass <code>?api=YOUR_EXEC_URL</code> in the page URL.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Login panel -->
+    <div id="loginPanel" class="fixed inset-0 hidden z-50">
+      <div class="absolute inset-0 bg-black/40"></div>
+      <div class="absolute inset-0 flex items-center justify-center p-4">
+        <div class="w-full max-w-sm card bg-white rounded-2xl p-5 space-y-3">
+          <h3 class="text-lg font-semibold">Login required</h3>
+          <p class="text-sm text-slate-600">Enter your credentials to access the New Match tab.</p>
+          <div class="space-y-2">
+            <div>
+              <label class="block text-sm mb-1">Username</label>
+              <input id="loginUser" class="w-full border rounded-xl px-3 py-2" placeholder="Username">
+            </div>
+            <div>
+              <label class="block text-sm mb-1">Password</label>
+              <input id="loginPass" type="password" class="w-full border rounded-xl px-3 py-2" placeholder="Password">
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button id="loginBtn" class="px-3 py-2 rounded-xl bg-emerald-600 text-white">Login</button>
+            <button id="loginCancel" class="px-3 py-2 rounded-xl border">Cancel</button>
+          </div>
+          <div id="loginMsg" class="text-sm text-rose-600"></div>
         </div>
       </div>
     </div>
@@ -146,30 +204,35 @@
   </div>
 
 <script>
-// ---------- storage for API URL ----------
 const store = {
   get url() { return localStorage.getItem('carrom_api_url') || ''; },
   set url(v) { localStorage.setItem('carrom_api_url', v); },
   get token() { return localStorage.getItem('carrom_api_token') || ''; },
-  set token(v) { localStorage.setItem('carrom_api_token', v); }
+  set token(v) { localStorage.setItem('carrom_api_token', v); },
+  get auth() { return localStorage.getItem('carrom_auth') === '1'; },
+  set auth(v) { localStorage.setItem('carrom_auth', v ? '1' : '0'); }
 };
+const DEFAULT_API = "https://script.google.com/macros/s/AKfycbzJPeUHtuJmUxz_X-HwXFuQnZ4HvmjWmKxHHuHu-GGN9jz7v7-6ODMC9Km9GlbZSMjX/exec";
+const LOGIN_USER = "Maduwantha";
+const LOGIN_PASS = "senadeerastores";
+
 const qs = s => document.querySelector(s);
 const ce = (tag, cls='') => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
 
-let TEAMS = [];       // [{id,name,members:[...]}, ...]
-let SCORES = {};      // {teamId: points}
-let HISTORY = [];     // raw rows for history
+let TEAMS = [];
+let SCORES = {};
+let HISTORY = [];
 let ALL_PLAYERS = [];
 let playerToTeamId = {};
+let PREV_TOP = null;
+let afterLogin = null;
 
-// ---------- helpers to work with either /exec or /macros/echo? ----------
 function buildUrl(base, extraParams) {
   const u = new URL(base);
   for (const [k, v] of Object.entries(extraParams || {})) u.searchParams.set(k, v);
   if (store.token) u.searchParams.set('token', store.token);
   return u.toString();
 }
-
 async function apiGet(action) {
   if (!store.url) throw new Error('Set your Web App URL in Settings.');
   const url = buildUrl(store.url, { action });
@@ -178,7 +241,6 @@ async function apiGet(action) {
   try { return JSON.parse(text); }
   catch { throw new Error('Non-JSON response: ' + text.slice(0, 180)); }
 }
-
 async function apiPost(form) {
   if (!store.url) throw new Error('Set your Web App URL in Settings.');
   if (store.token) form.append('token', store.token);
@@ -188,16 +250,38 @@ async function apiPost(form) {
   catch { throw new Error('Non-JSON response: ' + text.slice(0, 180)); }
 }
 
-// ---------- Tabs ----------
-const views = { score: qs('#view-score'), new: qs('#view-new'), hist: qs('#view-hist') };
+const views = { score: qs('#view-score'), new: qs('#view-new'), hist: qs('#view-hist'), stats: qs('#view-stats') };
 function setTab(name) {
   for (const [k, el] of Object.entries(views)) el.classList.toggle('hidden', k !== name);
   qs('#tab-score').classList.toggle('bg-white', name==='score');
   qs('#tab-new').classList.toggle('bg-white', name==='new');
   qs('#tab-hist').classList.toggle('bg-white', name==='hist');
+  qs('#tab-stats').classList.toggle('bg-white', name==='stats');
 }
 
-// ---------- Scoreboard ----------
+function setsEqual(a, b) {
+  if (!a || !b) return false;
+  if (a.size !== b.size) return false;
+  for (const v of a) if (!b.has(v)) return false;
+  return true;
+}
+
+function fireConfettiForTeam(teamId) {
+  const card = document.querySelector(`[data-team-id="${teamId}"]`);
+  const rect = card ? card.getBoundingClientRect() : null;
+  let originX = 0.5, originY = 0.2;
+  if (rect) {
+    originX = (rect.left + rect.width/2) / window.innerWidth;
+    originY = (rect.top + 10) / window.innerHeight;
+  }
+  const burst = (particleCount, spread) => {
+    confetti({ particleCount, spread, origin: { x: originX, y: originY }, startVelocity: 45, gravity: 0.9 });
+  };
+  burst(55, 55);
+  setTimeout(()=>burst(40, 70), 150);
+  setTimeout(()=>burst(28, 90), 300);
+}
+
 function renderScoreboard() {
   const grid = qs('#teamsGrid'); grid.innerHTML = '';
   const scores = TEAMS.map(t => SCORES[t.id] || 0);
@@ -207,6 +291,7 @@ function renderScoreboard() {
   TEAMS.forEach((t, i) => {
     const isTop = topSet.has(t.id);
     const card = ce('div', 'card rounded-2xl bg-white p-4 space-y-2 ' + (isTop ? 'topCard' : ''));
+    card.dataset.teamId = t.id;
     const header = ce('div', 'flex items-start justify-between');
     const left = ce('div', 'flex items-center gap-2');
     const dot = ce('div', 'h-3 w-3 rounded-full ' + ['bg-rose-400','bg-amber-400','bg-sky-400'][i%3]);
@@ -230,9 +315,20 @@ function renderScoreboard() {
     const topNames = TEAMS.filter(t => topSet.has(t.id)).map(t => t.name).join(' & ');
     note.textContent = topSet.size > 1 ? `Top: tie — ${topNames}` : `Top: ${topNames}`;
   } else note.textContent = '';
+
+  if (PREV_TOP === null) {
+    PREV_TOP = new Set(topSet);
+  } else {
+    const singleLeaderNow = topSet.size === 1;
+    const changed = !setsEqual(PREV_TOP, topSet);
+    if (singleLeaderNow && changed) {
+      const leaderId = [...topSet][0];
+      fireConfettiForTeam(leaderId);
+    }
+    PREV_TOP = new Set(topSet);
+  }
 }
 
-// ---------- Players & Match ----------
 function rebuildPlayerLists() {
   ALL_PLAYERS = [...new Set(TEAMS.flatMap(t => t.members || []))].sort();
   playerToTeamId = {};
@@ -250,7 +346,6 @@ function rebuildPlayerLists() {
     sel.onchange = enforceDistinctPlayers;
   }
 }
-
 function enforceDistinctPlayers() {
   const chosen = new Set(['a1','a2','b1','b2'].map(id => qs('#'+id).value).filter(Boolean));
   for (const id of ['a1','a2','b1','b2']) {
@@ -262,25 +357,134 @@ function enforceDistinctPlayers() {
     });
   }
 }
-
 function addPlayerToNextSlot(p) {
   for (const id of ['a1','a2','b1','b2']) {
     const sel = qs('#'+id);
     if (!sel.value) { sel.value = p; enforceDistinctPlayers(); return; }
   }
 }
-
 function clearMatch() {
   ['a1','a2','b1','b2'].forEach(id => qs('#'+id).value='');
   enforceDistinctPlayers();
   document.querySelectorAll('input[name="winner"]').forEach(r => r.checked=false);
   qs('#warn').textContent = '';
 }
-
 function swapSides() {
   const a1 = qs('#a1').value, a2 = qs('#a2').value, b1 = qs('#b1').value, b2 = qs('#b2').value;
   qs('#a1').value = b1; qs('#a2').value = b2; qs('#b1').value = a1; qs('#b2').value = a2;
   enforceDistinctPlayers();
+}
+
+// ---------- Stats ----------
+function computeStats() {
+  const teamStats = {};
+  TEAMS.forEach(t => teamStats[t.id] = {
+    id:t.id, name:t.name, members:t.members||[],
+    matches:0, winCredits:0, points:0, longestStreak:0, currentStreak:0
+  });
+  const playerStats = {};
+  ALL_PLAYERS.forEach(p => playerStats[p] = { player:p, team:playerToTeamId[p], matches:0, wins:0, points:0, longestStreak:0, currentStreak:0 });
+
+  HISTORY.forEach(h => {
+    const a = [h.a1,h.a2].filter(Boolean);
+    const b = [h.b1,h.b2].filter(Boolean);
+    const winners = (h.winnerSide==='A') ? a : b;
+    const losers  = (h.winnerSide==='A') ? b : a;
+    const pts = Number(h.pointsPerHead || 5);
+
+    TEAMS.forEach(t => {
+      const plays = a.concat(b).some(p => (playerToTeamId[p]===t.id));
+      if (plays) teamStats[t.id].matches += 1;
+    });
+
+    const teamWinnersCount = {};
+    winners.forEach(p => {
+      const tid = playerToTeamId[p]; if (!tid) return;
+      teamStats[tid].points += pts;
+      teamWinnersCount[tid] = (teamWinnersCount[tid]||0) + 1;
+    });
+
+    TEAMS.forEach(t => {
+      const winCount = (teamWinnersCount[t.id]||0);
+      const credit = winCount * 0.5;
+      if (credit > 0) {
+        teamStats[t.id].winCredits += credit;
+        teamStats[t.id].currentStreak += 1;
+        teamStats[t.id].longestStreak = Math.max(teamStats[t.id].longestStreak, teamStats[t.id].currentStreak);
+      } else {
+        teamStats[t.id].currentStreak = 0;
+      }
+    });
+
+    const participants = a.concat(b);
+    participants.forEach(p => { if (playerStats[p]) playerStats[p].matches += 1; });
+    winners.forEach(p => {
+      if (!playerStats[p]) return;
+      playerStats[p].wins += 1;
+      playerStats[p].points += pts;
+      playerStats[p].currentStreak += 1;
+      playerStats[p].longestStreak = Math.max(playerStats[p].longestStreak, playerStats[p].currentStreak);
+    });
+    losers.forEach(p => { if (playerStats[p]) playerStats[p].currentStreak = 0; });
+  });
+
+  Object.values(teamStats).forEach(s => {
+    s.winRate = s.matches ? (s.winCredits / s.matches) : 0;
+    s.avgPoints = s.matches ? (s.points / s.matches) : 0;
+  });
+  Object.values(playerStats).forEach(s => {
+    s.winRate = s.matches ? (s.wins / s.matches) : 0;
+    s.avgPoints = s.matches ? (s.points / s.matches) : 0;
+  });
+
+  return { teamStats, playerStats };
+}
+
+function renderStats() {
+  const { teamStats, playerStats } = computeStats();
+
+  const grid = qs('#teamStats'); grid.innerHTML = '';
+  TEAMS.forEach((t, i) => {
+    const s = teamStats[t.id];
+    const card = ce('div','card rounded-2xl p-4 bg-white space-y-2');
+    const head = ce('div','flex items-center justify-between');
+    const left = ce('div','flex items-center gap-2');
+    const dot = ce('div','h-3 w-3 rounded-full ' + ['bg-rose-400','bg-amber-400','bg-sky-400'][i%3]);
+    const name = ce('div','font-semibold text-lg'); name.textContent = t.name;
+    left.append(dot, name);
+    const points = ce('div','text-2xl font-extrabold'); points.textContent = Math.round((SCORES[t.id]||0));
+    head.append(left, points);
+    card.append(head);
+
+    const row = ce('div','grid grid-cols-2 gap-2 text-sm text-slate-700');
+    row.innerHTML = `
+      <div><span class="text-slate-500">Matches:</span> ${s.matches}</div>
+      <div><span class="text-slate-500">Win rate:</span> ${(s.winRate*100).toFixed(0)}%</div>
+      <div><span class="text-slate-500">Avg pts/match:</span> ${s.avgPoints.toFixed(1)}</div>
+      <div><span class="text-slate-500">Longest streak:</span> ${s.longestStreak}</div>
+    `;
+    card.append(row);
+    grid.append(card);
+  });
+
+  const totalMatches = HISTORY.length;
+  qs('#totalMatches').textContent = `${totalMatches} matches`;
+  const tbody = qs('#playerTable'); tbody.innerHTML = '';
+  const rows = Object.values(playerStats)
+    .sort((a,b) => b.points - a.points || b.wins - a.wins)
+    .map((s, idx) => `
+      <tr class="border-t">
+        <td class="py-2">${idx+1}</td>
+        <td class="py-2">${s.player}</td>
+        <td class="py-2">${(TEAMS.find(t=>t.id===s.team)||{}).name || '-'}</td>
+        <td class="py-2 font-semibold">${s.points}</td>
+        <td class="py-2">${s.matches}</td>
+        <td class="py-2">${s.wins}</td>
+        <td class="py-2">${(s.winRate*100).toFixed(0)}%</td>
+        <td class="py-2">${s.avgPoints.toFixed(1)}</td>
+      </tr>
+    `).join('');
+  tbody.innerHTML = rows || '<tr><td class="py-3" colspan="8">No matches yet.</td></tr>';
 }
 
 function renderHistory() {
@@ -298,7 +502,31 @@ function renderHistory() {
   });
 }
 
+function openLogin(next) {
+  afterLogin = next || null;
+  qs('#loginMsg').textContent = '';
+  qs('#loginUser').value = '';
+  qs('#loginPass').value = '';
+  qs('#loginPanel').classList.remove('hidden');
+  setTimeout(()=>qs('#loginUser').focus(), 50);
+}
+function closeLogin() { qs('#loginPanel').classList.add('hidden'); }
+
+function tryLogin() {
+  const u = (qs('#loginUser').value || '').trim();
+  const p = (qs('#loginPass').value || '').trim();
+  if (u === LOGIN_USER && p === LOGIN_PASS) {
+    store.auth = true;
+    closeLogin();
+    if (typeof afterLogin === 'function') afterLogin();
+    afterLogin = null;
+  } else {
+    qs('#loginMsg').textContent = 'Invalid username or password.';
+  }
+}
+
 async function saveMatch() {
+  if (!store.auth) { openLogin(() => setTab('new')); return; }
   const a1 = qs('#a1').value, a2 = qs('#a2').value, b1 = qs('#b1').value, b2 = qs('#b2').value;
   const winner = (document.querySelector('input[name="winner"]:checked')||{}).value;
   const pts = Math.max(1, Number(qs('#ptsPerHead').value||5));
@@ -327,7 +555,7 @@ async function saveMatch() {
   }
 }
 
-// ---------- Settings ----------
+// Settings panel
 function openSettings() {
   qs('#apiUrl').value = store.url;
   qs('#apiToken').value = store.token;
@@ -345,8 +573,12 @@ qs('#saveSettings').onclick = (ev) => {
   qs('#settingsMsg').textContent = 'Saved!';
   setTimeout(()=>{ qs('#settingsMsg').textContent=''; closeSettings(); refreshAll(); }, 300);
 };
+qs('#logoutBtn').onclick = () => { store.auth = false; alert('Logged out.'); };
 
-// ---------- Refresh from backend ----------
+// Login events
+qs('#loginBtn').onclick = tryLogin;
+qs('#loginCancel').onclick = () => { closeLogin(); };
+
 async function refreshAll() {
   try {
     const data = await apiGet('getAll');
@@ -356,6 +588,7 @@ async function refreshAll() {
     rebuildPlayerLists();
     renderScoreboard();
     renderHistory();
+    renderStats();
     qs('#matchDate').value = new Date().toISOString().slice(0,10);
     enforceDistinctPlayers();
   } catch (e) {
@@ -363,22 +596,20 @@ async function refreshAll() {
   }
 }
 
-// wire up tabs & actions
 qs('#tab-score').onclick = () => setTab('score');
-qs('#tab-new').onclick = () => setTab('new');
+qs('#tab-new').onclick = () => { if (store.auth) setTab('new'); else openLogin(() => setTab('new')); };
 qs('#tab-hist').onclick = () => setTab('hist');
+qs('#tab-stats').onclick = () => { renderStats(); setTab('stats'); };
 qs('#swapSides').onclick = swapSides;
 qs('#clearMatch').onclick = clearMatch;
 qs('#saveMatch').onclick = saveMatch;
 
-// init
 (function init(){
   setTab('score');
-  // Optional URL params ?api= & ?token=
   const params = new URLSearchParams(location.search);
   const pApi = params.get('api'); if (pApi) store.url = pApi;
   const pTok = params.get('token'); if (pTok) store.token = pTok;
-
+  if (!store.url) store.url = DEFAULT_API; // default for convenience
   if (store.url) refreshAll();
 })();
 </script>
