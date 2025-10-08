@@ -61,7 +61,11 @@
     <!-- New Match -->
     <section id="view-new" class="hidden space-y-4">
       <div class="card rounded-2xl p-4 bg-white space-y-3">
-        <div class="text-base text-slate-700">Pick four distinct players, place them into Side A and Side B (two per side), then choose the winner. Each winning player adds <span id="ptsPerHeadLabel">5</span> points to their own team.</div>
+        <div class="text-base text-slate-700">
+          Pick four distinct players, place them into Side A and Side B (two per side), then choose the winner.
+          Each winning player adds <span id="ptsPerHeadLabel">5</span> points to their own team.
+          <span class="font-medium text-rose-700">New (from 2025-10-08): each losing player incurs −5 points.</span>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div class="space-y-2">
             <div class="font-semibold text-base">All Players</div>
@@ -93,7 +97,7 @@
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label class="block text-base mb-1">Points per winning player</label>
+            <label class="block text-base mb-1">Points per winning player (loss penalty is fixed at 5)</label>
             <input id="ptsPerHead" type="number" min="1" value="5" class="border rounded-xl px-3 py-2 bg-white w-full">
           </div>
           <div>
@@ -216,6 +220,10 @@ const DEFAULT_API = "https://script.google.com/macros/s/AKfycbzJPeUHtuJmUxz_X-Hw
 const LOGIN_USER = "Maduwantha";
 const LOGIN_PASS = "senadeerastores";
 
+// --- New rule: losing player penalty (effective from 2025-10-08) ---
+const NEW_RULE_DATE = '2025-10-08';  // YYYY-MM-DD
+const LOSS_PENALTY = 5;              // fixed deduction per losing player
+
 const qs = s => document.querySelector(s);
 const ce = (tag, cls='') => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
 
@@ -282,11 +290,43 @@ function fireConfettiForTeam(teamId) {
   setTimeout(()=>burst(28, 90), 300);
 }
 
+// ---- NEW: compute live scores with penalty (from NEW_RULE_DATE) ----
+function computeLiveScores() {
+  const scores = {};
+  TEAMS.forEach(t => { scores[t.id] = 0; });
+
+  HISTORY.forEach(h => {
+    const a = [h.a1, h.a2].filter(Boolean);
+    const b = [h.b1, h.b2].filter(Boolean);
+    const winners = (h.winnerSide === 'A') ? a : b;
+    const losers  = (h.winnerSide === 'A') ? b : a;
+    const pts = Number(h.pointsPerHead || 5);
+    const dateStr = h.date || '';
+
+    // + points for each winner (to their team)
+    winners.forEach(p => {
+      const tid = playerToTeamId[p];
+      if (tid) scores[tid] = (scores[tid] || 0) + pts;
+    });
+
+    // − points for each loser (to their team) if match is on/after NEW_RULE_DATE
+    if (dateStr >= NEW_RULE_DATE) {
+      losers.forEach(p => {
+        const tid = playerToTeamId[p];
+        if (tid) scores[tid] = (scores[tid] || 0) - LOSS_PENALTY;
+      });
+    }
+  });
+
+  return scores;
+}
+
 function renderScoreboard() {
   const grid = qs('#teamsGrid'); grid.innerHTML = '';
-  const scores = TEAMS.map(t => SCORES[t.id] || 0);
-  const max = Math.max(0, ...scores);
-  const topSet = new Set(TEAMS.filter(t => (SCORES[t.id]||0) === max && max > 0).map(t => t.id));
+  const live = computeLiveScores();
+  const scoresArr = TEAMS.map(t => live[t.id] || 0);
+  const max = Math.max(0, ...scoresArr);
+  const topSet = new Set(TEAMS.filter(t => (live[t.id] || 0) === max && max > 0).map(t => t.id));
 
   TEAMS.forEach((t, i) => {
     const isTop = topSet.has(t.id);
@@ -297,7 +337,7 @@ function renderScoreboard() {
     const dot = ce('div', 'h-3 w-3 rounded-full ' + ['bg-rose-400','bg-amber-400','bg-sky-400'][i%3]);
     const name = ce('div', 'team-name font-semibold'); name.textContent = t.name;
     left.append(dot, name);
-    const score = ce('div', 'team-score font-extrabold'); score.textContent = SCORES[t.id] || 0;
+    const score = ce('div', 'team-score font-extrabold'); score.textContent = live[t.id] || 0;
     header.append(left, score);
     card.append(header);
     const members = ce('div', 'team-members text-slate-600'); members.textContent = (t.members||[]).join(' & ');
@@ -391,6 +431,7 @@ function computeStats() {
     const winners = (h.winnerSide==='A') ? a : b;
     const losers  = (h.winnerSide==='A') ? b : a;
     const pts = Number(h.pointsPerHead || 5);
+    const dateStr = h.date || '';
 
     TEAMS.forEach(t => {
       const plays = a.concat(b).some(p => (playerToTeamId[p]===t.id));
@@ -403,6 +444,14 @@ function computeStats() {
       teamStats[tid].points += pts;
       teamWinnersCount[tid] = (teamWinnersCount[tid]||0) + 1;
     });
+
+    // New rule: subtract fixed penalty for each losing player on/after NEW_RULE_DATE
+    if (dateStr >= NEW_RULE_DATE) {
+      losers.forEach(p => {
+        const tid = playerToTeamId[p]; if (!tid) return;
+        teamStats[tid].points -= LOSS_PENALTY;     // team loses 5 per losing player
+      });
+    }
 
     TEAMS.forEach(t => {
       const winCount = (teamWinnersCount[t.id]||0);
@@ -425,7 +474,13 @@ function computeStats() {
       playerStats[p].currentStreak += 1;
       playerStats[p].longestStreak = Math.max(playerStats[p].longestStreak, playerStats[p].currentStreak);
     });
-    losers.forEach(p => { if (playerStats[p]) playerStats[p].currentStreak = 0; });
+    losers.forEach(p => {
+      if (!playerStats[p]) return;
+      // reset streak on loss (existing behavior)
+      playerStats[p].currentStreak = 0;
+      // apply new rule penalty if effective
+      if (dateStr >= NEW_RULE_DATE) playerStats[p].points -= LOSS_PENALTY;
+    });
   });
 
   Object.values(teamStats).forEach(s => {
@@ -442,6 +497,7 @@ function computeStats() {
 
 function renderStats() {
   const { teamStats, playerStats } = computeStats();
+  const live = computeLiveScores();
 
   const grid = qs('#teamStats'); grid.innerHTML = '';
   TEAMS.forEach((t, i) => {
@@ -452,7 +508,7 @@ function renderStats() {
     const dot = ce('div','h-3 w-3 rounded-full ' + ['bg-rose-400','bg-amber-400','bg-sky-400'][i%3]);
     const name = ce('div','font-semibold text-lg'); name.textContent = t.name;
     left.append(dot, name);
-    const points = ce('div','text-2xl font-extrabold'); points.textContent = Math.round((SCORES[t.id]||0));
+    const points = ce('div','text-2xl font-extrabold'); points.textContent = Math.round(live[t.id] || 0);
     head.append(left, points);
     card.append(head);
 
@@ -497,8 +553,20 @@ function renderHistory() {
     const card = ce('div','card rounded-2xl bg-white p-4 space-y-1');
     const line = ce('div','font-semibold text-base'); line.textContent = `${m.date} — ${m.a1} & ${m.a2} vs ${m.b1} & ${m.b2} — Winner: ${m.winnerSide}`;
     const award = ce('div','text-base text-slate-700'); award.textContent = `Awarded +${m.pointsPerHead} to: ${m.winners}`;
+    card.append(line, award);
+
+    // Show penalty line for matches on/after NEW_RULE_DATE
+    if ((m.date || '') >= NEW_RULE_DATE) {
+      const losers = (m.winnerSide === 'A') ? [m.b1, m.b2].filter(Boolean) : [m.a1, m.a2].filter(Boolean);
+      if (losers.length) {
+        const penalty = ce('div','text-base text-rose-700');
+        penalty.textContent = `Penalized −${LOSS_PENALTY} from: ${losers.join(' & ')}`;
+        card.append(penalty);
+      }
+    }
+
     const teamsAward = ce('div','text-sm text-slate-600'); teamsAward.textContent = `Team awards: ${m.teamAwardSummary}`;
-    card.append(line, award, teamsAward); root.append(card);
+    card.append(teamsAward); root.append(card);
   });
 }
 
@@ -583,7 +651,7 @@ async function refreshAll() {
   try {
     const data = await apiGet('getAll');
     TEAMS = data.teams || [];
-    SCORES = data.scores || {};
+    SCORES = data.scores || {};   // kept for compatibility; UI uses computeLiveScores()
     HISTORY = data.history || [];
     rebuildPlayerLists();
     renderScoreboard();
