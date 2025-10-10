@@ -64,7 +64,7 @@
         <div class="text-base text-slate-700">
           Pick four distinct players, place them into Side A and Side B (two per side), then choose the winner.
           Each winning player adds <span id="ptsPerHeadLabel">5</span> points to their own team.
-          <span class="font-medium text-rose-700">New (from 2025-10-08): each losing player incurs −5 points.</span>
+          <span class="font-medium text-rose-700">Each losing player subtracts 5 points from their own team.</span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div class="space-y-2">
@@ -81,6 +81,14 @@
             <div class="flex gap-4 text-base">
               <label class="flex items-center gap-2"><input type="radio" name="winner" value="A"> <span>Side A</span></label>
               <label class="flex items-center gap-2"><input type="radio" name="winner" value="B"> <span>Side B</span></label>
+            </div>
+
+            <!-- Inline winner preview -->
+            <div id="matchPreview" class="mt-2 text-base">
+              <div class="hidden rounded-xl border bg-white px-3 py-2" id="matchPreviewBox">
+                <div class="font-medium">Preview</div>
+                <div id="matchPreviewText" class="text-slate-800"></div>
+              </div>
             </div>
           </div>
           <div class="space-y-2">
@@ -220,9 +228,8 @@ const DEFAULT_API = "https://script.google.com/macros/s/AKfycbzJPeUHtuJmUxz_X-Hw
 const LOGIN_USER = "Maduwantha";
 const LOGIN_PASS = "senadeerastores";
 
-// --- New rule: losing player penalty (effective from 2025-10-08) ---
-const NEW_RULE_DATE = '2025-10-08';  // YYYY-MM-DD
-const LOSS_PENALTY = 5;              // fixed deduction per losing player
+// --- Rule config ---
+const LOSS_PENALTY = 5;   // fixed deduction per losing player
 
 const qs = s => document.querySelector(s);
 const ce = (tag, cls='') => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
@@ -290,7 +297,7 @@ function fireConfettiForTeam(teamId) {
   setTimeout(()=>burst(28, 90), 300);
 }
 
-// ---- NEW: compute live scores with penalty (from NEW_RULE_DATE) ----
+// ---- Live scores with always-on penalty ----
 function computeLiveScores() {
   const scores = {};
   TEAMS.forEach(t => { scores[t.id] = 0; });
@@ -301,24 +308,75 @@ function computeLiveScores() {
     const winners = (h.winnerSide === 'A') ? a : b;
     const losers  = (h.winnerSide === 'A') ? b : a;
     const pts = Number(h.pointsPerHead || 5);
-    const dateStr = h.date || '';
 
-    // + points for each winner (to their team)
     winners.forEach(p => {
       const tid = playerToTeamId[p];
       if (tid) scores[tid] = (scores[tid] || 0) + pts;
     });
-
-    // − points for each loser (to their team) if match is on/after NEW_RULE_DATE
-    if (dateStr >= NEW_RULE_DATE) {
-      losers.forEach(p => {
-        const tid = playerToTeamId[p];
-        if (tid) scores[tid] = (scores[tid] || 0) - LOSS_PENALTY;
-      });
-    }
+    // Always subtract for losers
+    losers.forEach(p => {
+      const tid = playerToTeamId[p];
+      if (tid) scores[tid] = (scores[tid] || 0) - LOSS_PENALTY;
+    });
   });
 
   return scores;
+}
+
+// ---------- Winner preview ----------
+function teamNameById(tid) {
+  const t = TEAMS.find(x => x.id === tid);
+  return t ? t.name : '—';
+}
+function computeMatchPreview() {
+  const a1 = qs('#a1').value, a2 = qs('#a2').value, b1 = qs('#b1').value, b2 = qs('#b2').value;
+  const winner = (document.querySelector('input[name="winner"]:checked')||{}).value;
+  const pts = Math.max(1, Number(qs('#ptsPerHead').value || 5));
+
+  // sync header label
+  qs('#ptsPerHeadLabel').textContent = pts;
+
+  const okPlayers = a1 && a2 && b1 && b2;
+  const okWinner  = winner === 'A' || winner === 'B';
+  const box = qs('#matchPreviewBox');
+  const txt = qs('#matchPreviewText');
+
+  if (!okPlayers || !okWinner) { box.classList.add('hidden'); txt.textContent = ''; return; }
+
+  const winners = (winner === 'A') ? [a1, a2] : [b1, b2];
+  const losers  = (winner === 'A') ? [b1, b2] : [a1, a2];
+
+  const teamDelta = {};
+  const addDelta = (player, delta) => {
+    const tid = playerToTeamId[player];
+    if (!tid) return;
+    teamDelta[tid] = (teamDelta[tid] || 0) + delta;
+  };
+
+  winners.forEach(p => addDelta(p, pts));
+  losers.forEach(p => addDelta(p, -LOSS_PENALTY)); // always subtract
+
+  const entries = Object.entries(teamDelta)
+    .sort((a,b) => b[1]-a[1])
+    .map(([tid, delta]) => `${teamNameById(tid)} ${delta > 0 ? '+' : ''}${delta}`);
+
+  // Quick headline if both pairs are same-team
+  const winnersTeams = [...new Set(winners.map(p => playerToTeamId[p]).filter(Boolean))];
+  const losersTeams  = [...new Set(losers.map(p  => playerToTeamId[p]).filter(Boolean))];
+  let headline = '';
+  if (winnersTeams.length === 1 && losersTeams.length === 1) {
+    const winTid = winnersTeams[0], loseTid = losersTeams[0];
+    const winSum  = winners.reduce((s,p) => s + (playerToTeamId[p]===winTid ? pts : 0), 0);
+    const loseSum = losers.reduce((s,p)=> s + (playerToTeamId[p]===loseTid ? LOSS_PENALTY : 0), 0);
+    headline = `${teamNameById(winTid)} +${winSum}, ${teamNameById(loseTid)} -${loseSum} (${losers.length} ${losers.length===1?'player':'players'})`;
+  }
+
+  const lines = [];
+  if (headline) lines.push(headline);
+  lines.push(entries.join(', '));
+
+  box.classList.remove('hidden');
+  txt.textContent = lines.join('  •  ');
 }
 
 function renderScoreboard() {
@@ -396,6 +454,7 @@ function enforceDistinctPlayers() {
       opt.disabled = (opt.value !== cur && chosen.has(opt.value));
     });
   }
+  computeMatchPreview();
 }
 function addPlayerToNextSlot(p) {
   for (const id of ['a1','a2','b1','b2']) {
@@ -408,6 +467,7 @@ function clearMatch() {
   enforceDistinctPlayers();
   document.querySelectorAll('input[name="winner"]').forEach(r => r.checked=false);
   qs('#warn').textContent = '';
+  computeMatchPreview();
 }
 function swapSides() {
   const a1 = qs('#a1').value, a2 = qs('#a2').value, b1 = qs('#b1').value, b2 = qs('#b2').value;
@@ -431,7 +491,6 @@ function computeStats() {
     const winners = (h.winnerSide==='A') ? a : b;
     const losers  = (h.winnerSide==='A') ? b : a;
     const pts = Number(h.pointsPerHead || 5);
-    const dateStr = h.date || '';
 
     TEAMS.forEach(t => {
       const plays = a.concat(b).some(p => (playerToTeamId[p]===t.id));
@@ -445,13 +504,11 @@ function computeStats() {
       teamWinnersCount[tid] = (teamWinnersCount[tid]||0) + 1;
     });
 
-    // New rule: subtract fixed penalty for each losing player on/after NEW_RULE_DATE
-    if (dateStr >= NEW_RULE_DATE) {
-      losers.forEach(p => {
-        const tid = playerToTeamId[p]; if (!tid) return;
-        teamStats[tid].points -= LOSS_PENALTY;     // team loses 5 per losing player
-      });
-    }
+    // Always subtract for each losing player
+    losers.forEach(p => {
+      const tid = playerToTeamId[p]; if (!tid) return;
+      teamStats[tid].points -= LOSS_PENALTY;
+    });
 
     TEAMS.forEach(t => {
       const winCount = (teamWinnersCount[t.id]||0);
@@ -476,10 +533,8 @@ function computeStats() {
     });
     losers.forEach(p => {
       if (!playerStats[p]) return;
-      // reset streak on loss (existing behavior)
-      playerStats[p].currentStreak = 0;
-      // apply new rule penalty if effective
-      if (dateStr >= NEW_RULE_DATE) playerStats[p].points -= LOSS_PENALTY;
+      playerStats[p].currentStreak = 0;           // reset streak on loss
+      playerStats[p].points -= LOSS_PENALTY;      // always subtract
     });
   });
 
@@ -555,14 +610,12 @@ function renderHistory() {
     const award = ce('div','text-base text-slate-700'); award.textContent = `Awarded +${m.pointsPerHead} to: ${m.winners}`;
     card.append(line, award);
 
-    // Show penalty line for matches on/after NEW_RULE_DATE
-    if ((m.date || '') >= NEW_RULE_DATE) {
-      const losers = (m.winnerSide === 'A') ? [m.b1, m.b2].filter(Boolean) : [m.a1, m.a2].filter(Boolean);
-      if (losers.length) {
-        const penalty = ce('div','text-base text-rose-700');
-        penalty.textContent = `Penalized −${LOSS_PENALTY} from: ${losers.join(' & ')}`;
-        card.append(penalty);
-      }
+    // Always show penalty line for losers
+    const losers = (m.winnerSide === 'A') ? [m.b1, m.b2].filter(Boolean) : [m.a1, m.a2].filter(Boolean);
+    if (losers.length) {
+      const penalty = ce('div','text-base text-rose-700');
+      penalty.textContent = `Penalized −${LOSS_PENALTY} from: ${losers.join(' & ')}`;
+      card.append(penalty);
     }
 
     const teamsAward = ce('div','text-sm text-slate-600'); teamsAward.textContent = `Team awards: ${m.teamAwardSummary}`;
@@ -657,8 +710,11 @@ async function refreshAll() {
     renderScoreboard();
     renderHistory();
     renderStats();
-    qs('#matchDate').value = new Date().toISOString().slice(0,10);
+    const today = new Date().toISOString().slice(0,10);
+    qs('#matchDate').value = today;
+    qs('#matchDate').setAttribute('max', today); // prevent future dates
     enforceDistinctPlayers();
+    computeMatchPreview(); // initial preview compute
   } catch (e) {
     alert('Backend error: ' + (e.message || e));
   }
@@ -671,6 +727,14 @@ qs('#tab-stats').onclick = () => { renderStats(); setTab('stats'); };
 qs('#swapSides').onclick = swapSides;
 qs('#clearMatch').onclick = clearMatch;
 qs('#saveMatch').onclick = saveMatch;
+
+// Live winner preview triggers
+document.querySelectorAll('input[name="winner"]').forEach(r => {
+  r.addEventListener('change', computeMatchPreview);
+});
+['a1','a2','b1','b2'].forEach(id => qs('#'+id).addEventListener('change', computeMatchPreview));
+qs('#ptsPerHead').addEventListener('input', computeMatchPreview);
+qs('#matchDate').addEventListener('change', computeMatchPreview);
 
 (function init(){
   setTab('score');
